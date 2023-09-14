@@ -1,12 +1,17 @@
-use std::ops::{Mul, AddAssign};
+use std::ops::{Mul, AddAssign, MulAssign};
 
 use array_trait::ArrayOps;
 
 use float_approx_math::{ApproxSqrt, ApproxInvSqrt};
+use num_identities_const::OneConst;
 
 #[const_trait]
 pub trait ArrayMath<T, const N: usize>: ArrayOps<T, N>
 {
+    fn product(self) -> T
+    where
+        T: ~const MulAssign<T> + OneConst;
+
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
         T: ~const Mul<T, Output: ~const AddAssign + ~const Default + ~const ApproxSqrt> + Copy;
@@ -26,6 +31,13 @@ pub trait ArrayMath<T, const N: usize>: ArrayOps<T, N>
 
 impl<T, const N: usize> const ArrayMath<T, N> for [T; N]
 {
+    fn product(self) -> T
+    where
+        T: ~const MulAssign<T> + OneConst
+    {
+        self.product_from(T::ONE)
+    }
+
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
         T: ~const Mul<T, Output: ~const AddAssign + ~const Default + ~const ApproxSqrt> + Copy
