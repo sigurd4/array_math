@@ -1,6 +1,6 @@
 use std::ops::{Mul, AddAssign, MulAssign};
 
-use array_trait::ArrayOps;
+use super::*;
 
 use float_approx_math::{ApproxSqrt, ApproxInvSqrt};
 use num_identities_const::OneConst;
