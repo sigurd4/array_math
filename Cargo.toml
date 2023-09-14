@@ -3,7 +3,7 @@ name = "array_math"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Math operations on arrays"
+description = "Compile-time math operations on arrays"
 repository = "https://github.com/sigurd4/array_math"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
