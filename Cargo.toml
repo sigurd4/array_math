@@ -9,7 +9,8 @@ repository = "https://github.com/sigurd4/array_math"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-moddef = "0.2.2"
-array_trait = "0.6.16"
-float_approx_math = "0.1.4"
-num_identities_const = "0.1.0"
+moddef = "^0.2.2"
+array_trait = "^0.6.17"
+#array_trait = {path = "../array_trait"}
+float_approx_math = "^0.1.6"
+num_identities_const = "^0.1.0"
