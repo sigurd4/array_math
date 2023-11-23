@@ -12,12 +12,12 @@ use std::ops::{Mul, AddAssign, MulAssign, Div};
 use float_approx_math::{ApproxSqrt, ApproxInvSqrt};
 use num_identities_const::{OneConst, ZeroConst};
 
-#[const_trait]
-pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
+//#[const_trait]
+pub trait ArrayMath<T, const N: usize>: /*~const*/ ArrayOps<T, N>
 {
     fn sum(self) -> T
     where
-        T: ~const AddAssign + ZeroConst
+        T: /*~const*/ AddAssign + ZeroConst
     {
         //self.sum_from(T::ZERO)
         self.try_sum()
@@ -26,7 +26,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn product(self) -> T
     where
-        T: ~const MulAssign + OneConst
+        T: /*~const*/ MulAssign + OneConst
     {
         //self.product_from(T::ONE)
         self.try_product()
@@ -35,8 +35,8 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     
     fn avg(self) -> <T as Div>::Output
     where
-        u8: ~const Into<T>,
-        T: ~const Div + ~const AddAssign + ZeroConst,
+        u8: /*~const*/ Into<T>,
+        T: /*~const*/ Div + /*~const*/ AddAssign + ZeroConst,
         [(); u8::MAX as usize - N]:
     {
         self.sum()/(N as u8).into()
@@ -44,8 +44,8 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     
     fn avg16(self) -> <T as Div>::Output
     where
-        u16: ~const Into<T>,
-        T: ~const Div + ~const AddAssign + ZeroConst,
+        u16: /*~const*/ Into<T>,
+        T: /*~const*/ Div + /*~const*/ AddAssign + ZeroConst,
         [(); u16::MAX as usize - N]:
     {
         self.sum()/(N as u16).into()
@@ -53,8 +53,8 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn avg32(self) -> <T as Div>::Output
     where
-        u32: ~const Into<T>,
-        T: ~const Div + ~const AddAssign + ZeroConst,
+        u32: /*~const*/ Into<T>,
+        T: /*~const*/ Div + /*~const*/ AddAssign + ZeroConst,
         [(); u32::MAX as usize - N]:
     {
         self.sum()/(N as u32).into()
@@ -62,15 +62,15 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     
     fn avg64(self) -> <T as Div>::Output
     where
-        u64: ~const Into<T>,
-        T: ~const Div + ~const AddAssign + ZeroConst
+        u64: /*~const*/ Into<T>,
+        T: /*~const*/ Div + /*~const*/ AddAssign + ZeroConst
     {
         self.sum()/(N as u64).into()
     }
 
     fn mul_dot<Rhs>(self, rhs: Self::MappedTo<Rhs>) -> <T as Mul<Rhs>>::Output
     where
-        T: ~const Mul<Rhs, Output: ~const AddAssign + ZeroConst>
+        T: /*~const*/ Mul<Rhs, Output: /*~const*/ AddAssign + ZeroConst>
     {
         self.try_mul_dot(rhs)
             .unwrap_or_else(const || ZeroConst::ZERO)
@@ -78,11 +78,11 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn magnitude_squared(self) -> <T as Mul<T>>::Output
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst> + Copy;
 
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxSqrt> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxSqrt> + Copy
     {
         const N: usize = 3;
         self.magnitude_squared()
@@ -91,7 +91,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     
     fn magnitude_inv(self) -> <T as Mul<T>>::Output
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxInvSqrt> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt> + Copy
     {
         const N: usize = 4;
         self.magnitude_squared()
@@ -100,32 +100,32 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn normalize(self) -> Self::MappedTo<<T as Mul<<T as Mul<T>>::Output>>::Output>
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxInvSqrt + Copy> + ~const Mul<<T as Mul<T>>::Output> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy;
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> Self::MappedTo<<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output>
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxInvSqrt + ~const Mul<Rhs, Output: Copy>> + ~const Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
 }
 
-impl<T, const N: usize> const ArrayMath<T, N> for [T; N]
+impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
 {
     fn magnitude_squared(self) -> <T as Mul<T>>::Output
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst> + Copy
     {
         self.mul_dot(self)
     }
 
     fn normalize(self) -> Self::MappedTo<<T as Mul<<T as Mul<T>>::Output>>::Output>
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxInvSqrt + Copy> + ~const Mul<<T as Mul<T>>::Output> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy
     {
         self.mul_all(self.magnitude_inv())
     }
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> Self::MappedTo<<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output>
     where
-        T: ~const Mul<T, Output: ~const AddAssign + ZeroConst + ~const ApproxInvSqrt + ~const Mul<Rhs, Output: Copy>> + ~const Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
     {
         self.mul_all(self.magnitude_inv()*magnitude)
     }
