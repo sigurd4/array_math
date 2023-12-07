@@ -7,7 +7,7 @@
 
 pub use array_trait::*;
 
-use std::ops::{Mul, AddAssign, MulAssign, Div};
+use std::{ops::{Mul, AddAssign, MulAssign, Div, Neg}, process::Output};
 
 use float_approx_math::{ApproxSqrt, ApproxInvSqrt};
 use num_identities_const::{OneConst, ZeroConst};
@@ -31,6 +31,49 @@ pub trait ArrayMath<T, const N: usize>: /*~const*/ ArrayOps<T, N>
         //self.product_from(T::ONE)
         self.try_product()
             .unwrap_or_else(const || T::ONE)
+    }
+
+    fn variance(self) -> <T as Mul>::Output
+    where
+        Self: ArrayOps<T, N, MappedTo<T> = Self> + Copy,
+        u8: Into<T>,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + ZeroConst,
+        [(); u8::MAX as usize - N]:
+    {
+        let mu = self.avg();
+        self.mul_dot_bias(self, -(mu*mu))
+    }
+    
+    fn variance16(self) -> <T as Mul>::Output
+    where
+        Self: ArrayOps<T, N, MappedTo<T> = Self> + Copy,
+        u16: Into<T>,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + ZeroConst,
+        [(); u16::MAX as usize - N]:
+    {
+        let mu = self.avg16();
+        self.mul_dot_bias(self, -(mu*mu))
+    }
+    
+    fn variance32(self) -> <T as Mul>::Output
+    where
+        Self: ArrayOps<T, N, MappedTo<T> = Self> + Copy,
+        u32: Into<T>,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + ZeroConst,
+        [(); u32::MAX as usize - N]:
+    {
+        let mu = self.avg32();
+        self.mul_dot_bias(self, -(mu*mu))
+    }
+    
+    fn variance64(self) -> <T as Mul>::Output
+    where
+        Self: ArrayOps<T, N, MappedTo<T> = Self> + Copy,
+        u64: Into<T>,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + ZeroConst,
+    {
+        let mu = self.avg64();
+        self.mul_dot_bias(self, -(mu*mu))
     }
     
     fn avg(self) -> <T as Div>::Output
