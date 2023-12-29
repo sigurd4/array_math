@@ -1,16 +1,16 @@
 [package]
 name = "array_math"
-version = "0.1.5"
+version = "0.2.5"
 edition = "2021"
 license = "MIT"
-description = "Compile-time math operations on arrays"
+description = "A selection of useful math operations on arrays"
 repository = "https://github.com/sigurd4/array_math"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 moddef = "0.2.2"
-array_trait = "0.6.18"
-#array_trait = {path = "../array_trait"}
-float_approx_math = "0.1.7"
+num = "0.4.1"
+array__ops = "0.1.1"
+float_approx_math = "0.1.8"
 num_identities_const = "0.1.0"
