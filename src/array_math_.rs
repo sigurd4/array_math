@@ -1,7 +1,7 @@
 use std::ops::{AddAssign, MulAssign, Mul, Neg, Div};
 
 use array__ops::ArrayOps;
-use float_approx_math::{ApproxSqrt, ApproxInvSqrt};
+use num::Float;
 use num_identities_const::{ZeroConst, OneConst};
 
 #[const_trait]
@@ -75,19 +75,19 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxSqrt> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + Float> + Copy;
     
     fn magnitude_inv(self) -> <T as Mul<T>>::Output
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + Float> + Copy;
 
     fn normalize(self) -> [<T as Mul<<T as Mul<T>>::Output>>::Output; N]
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + Float + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy;
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output; N]
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + Float + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
 }
 
 impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
@@ -229,32 +229,33 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxSqrt> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ Float> + Copy
     {
         const N: usize = 3;
         self.magnitude_squared()
-            .approx_sqrt::<{N}>()
+            .sqrt()
     }
     
     fn magnitude_inv(self) -> <T as Mul<T>>::Output
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ Float> + Copy
     {
         const N: usize = 4;
         self.magnitude_squared()
-            .approx_inv_sqrt::<{N}>()
+            .sqrt()
+            .recip()
     }
 
     fn normalize(self) -> [<T as Mul<<T as Mul<T>>::Output>>::Output; N]
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ Float + Copy> + /*~const*/ Mul<<T as Mul<T>>::Output> + Copy
     {
         self.mul_all(self.magnitude_inv())
     }
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output; N]
     where
-        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ ApproxInvSqrt + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
+        T: /*~const*/ Mul<T, Output: /*~const*/ AddAssign + ZeroConst + /*~const*/ Float + /*~const*/ Mul<Rhs, Output: Copy>> + /*~const*/ Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
     {
         self.mul_all(self.magnitude_inv()*magnitude)
     }
