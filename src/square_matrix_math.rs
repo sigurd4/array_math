@@ -1,8 +1,7 @@
 use std::ops::{SubAssign, DivAssign, AddAssign};
 
 use array__ops::max_len;
-use num::Signed;
-use num_identities_const::{OneConst, ZeroConst};
+use num::{One, Signed, Zero};
 
 use crate::MatrixMath;
 
@@ -11,18 +10,18 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
 {
     fn inv_matrix(&self) -> Option<[[T; N]; N]>
     where
-        T: Signed + PartialOrd + OneConst + ZeroConst + Copy + SubAssign + DivAssign + AddAssign,
+        T: Signed + PartialOrd + One + Zero + Copy + SubAssign + DivAssign + AddAssign,
         [(); max_len(N, N)]:;
         
     fn solve_matrix(&self, b: &[T; N]) -> [T; N]
     where
-        T: Copy + Signed + ZeroConst + OneConst + PartialOrd + AddAssign + SubAssign + DivAssign,
+        T: Copy + Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign,
         [(); max_len(N, N)]:;
 }
 
 pub fn inv_matrix<T, const N: usize>(matrix: &[[T; N]; N]) -> Option<[[T; N]; N]>
 where
-    T: Signed + PartialOrd + OneConst + ZeroConst + Copy + SubAssign + DivAssign + AddAssign,
+    T: Signed + PartialOrd + One + Zero + Copy + SubAssign + DivAssign + AddAssign,
     [(); max_len(N, N)]:
 {
     let (p, l, u) = crate::lup_matrix(&matrix);
@@ -30,18 +29,18 @@ where
     let mut n = 0;
     while n != N
     {
-        if l[n][n].is_zero2()
+        if l[n][n].is_zero()
         {
             return None
         }
-        if u[n][n].is_zero2()
+        if u[n][n].is_zero()
         {
             return None
         }
         n += 1;
     }
 
-    let mut ia = [[T::ZERO; N]; N];
+    let mut ia = [[T::zero(); N]; N];
 
     let mut j = 0;
     while j < N
@@ -84,7 +83,7 @@ where
 
 pub fn solve_matrix<T, const N: usize>(matrix: &[[T; N]; N], b: &[T; N]) -> [T; N]
 where
-    T: Copy + Signed + ZeroConst + OneConst + PartialOrd + AddAssign + SubAssign + DivAssign,
+    T: Copy + Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign,
     [(); max_len(N, N)]:
 {
     let (l, u, p) = crate::lup_matrix(matrix);
@@ -128,7 +127,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
 {
     fn inv_matrix(&self) -> Option<[[T; N]; N]>
     where
-        T: Signed + PartialOrd + OneConst + ZeroConst + Copy + SubAssign + DivAssign + AddAssign,
+        T: Signed + PartialOrd + One + Zero + Copy + SubAssign + DivAssign + AddAssign,
         [(); max_len(N, N)]:
     {
         crate::inv_matrix(self)
@@ -136,7 +135,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
 
     fn solve_matrix(&self, b: &[T; N]) -> [T; N]
     where
-        T: Copy + Signed + ZeroConst + OneConst + PartialOrd + AddAssign + SubAssign + DivAssign,
+        T: Copy + Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign,
         [(); max_len(N, N)]:
     {
         crate::solve_matrix(self, b)
