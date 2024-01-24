@@ -44,7 +44,7 @@ pub fn identity_matrix<T, const M: usize, const N: usize>() -> [[T; N]; M]
 where
     T: Zero + One
 {
-    array__ops::fill(|m| array__ops::fill(|n| if m == n
+    ArrayOps::fill(|m| ArrayOps::fill(|n| if m == n
     {
         One::one()
     }
