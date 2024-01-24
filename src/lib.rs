@@ -11,6 +11,7 @@
 #![feature(const_closures)]
 
 pub use array__ops::*;
+pub use slice_math::SliceMath;
 
 moddef::moddef!(
     flat(pub) mod {

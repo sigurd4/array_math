@@ -1,7 +1,7 @@
 use std::{ops::{Mul, AddAssign, MulAssign, SubAssign, DivAssign, Sub, Div, Neg}, mem::MaybeUninit};
 
 use array__ops::{Array2dOps, ArrayOps, min_len, max_len};
-use num::{One, Zero};
+use num::{complex::ComplexFloat, Complex, Float, One, Zero};
 
 use crate::{ArrayMath};
 
@@ -12,7 +12,130 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     where
         T: Zero + One;
 
-    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &Self::Array2d<Rhs, N, P>) -> Self::Array2d<<T as Mul<Rhs>>::Output, M, P>
+    /// Performs two-dimensional direct convolution on two matrices.
+    /// 
+    /// # Example
+    /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use array_math::*;
+    /// 
+    /// let x = [
+    ///     [1, 0, 0],
+    ///     [0, 0, 0],
+    ///     [0, 0, 2]
+    /// ];
+    /// let h = [
+    ///     [1, 1],
+    ///     [1, 1]
+    /// ];
+    /// 
+    /// let y = x.convolve_2d_direct(&h);
+    /// 
+    /// assert_eq!(y, [
+    ///     [1, 1, 0, 0],
+    ///     [1, 1, 0, 0],
+    ///     [0, 0, 2, 2],
+    ///     [0, 0, 2, 2]
+    /// ]);
+    /// ```
+    fn convolve_2d_direct<Rhs, const H: usize, const W: usize>(&self, rhs: &[[Rhs; W]; H]) -> [[<T as Mul<Rhs>>::Output; N + W - 1]; M + H - 1]
+    where
+        T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
+        Rhs: Copy;
+        
+    /// Performs two-dimensional convolution using FFT on two matrices.
+    /// 
+    /// # Example
+    /// ```rust
+    /// #![feature(generic_arg_infer)]
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use array_math::*;
+    /// 
+    /// let x = [
+    ///     [1.0, 0.0, 0.0],
+    ///     [0.0, 0.0, 0.0],
+    ///     [0.0, 0.0, 2.0]
+    /// ];
+    /// let h = [
+    ///     [1.0, 1.0],
+    ///     [1.0, 1.0]
+    /// ];
+    /// 
+    /// let y_fft = x.convolve_2d_fft_cooley_tukey::<_, _, _, 4, 4>(&h);
+    /// let y_direct = x.convolve_2d_direct(&h);
+    /// 
+    /// let avg_error = y_fft.comap(y_direct, |y_fft, y_direct| y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg()).avg();
+    /// assert!(avg_error < 1.0e-16);
+    /// ```
+    fn convolve_2d_fft_cooley_tukey<Rhs, const W: usize, const H: usize, const U: usize, const V: usize>(&self, rhs: &[[Rhs; W]; H]) -> [[<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + W - 1]; M + H - 1]
+    where
+        T: Float + Copy,
+        Rhs: Float + Copy,
+        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        [(); U]:,
+        [(); U - M]:,
+        [(); U - H]:,
+        [(); U - (M + H - 1)]:,
+        [(); U.is_power_of_two() as usize - 1]:,
+        [(); V]:,
+        [(); V - N]:,
+        [(); V - W]:,
+        [(); V - (N + W - 1)]:,
+        [(); V.is_power_of_two() as usize - 1]:;
+
+    /// Performs the 2D Cooley-Tukey FFT on a given matrix
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use num::Complex;
+    /// use array_math::*;
+    /// 
+    /// let x = [
+    ///     [1.0, 0.0],
+    ///     [0.0, 1.0]
+    /// ].map(|r| r.map(|x| Complex::from(x)));
+    /// let mut y = x;
+    /// 
+    /// y.fft_2d_cooley_tukey();
+    /// y.ifft_2d_cooley_tukey();
+    /// 
+    /// assert_eq!(x, y);
+    /// ```
+    fn fft_2d_cooley_tukey(&mut self)
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:;
+        
+    /// Performs the 2D Cooley-Tukey IFFT on a given matrix
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use num::Complex;
+    /// use array_math::*;
+    /// 
+    /// let x = [
+    ///     [1.0, 0.0],
+    ///     [0.0, 1.0]
+    /// ].map(|r| r.map(|x| Complex::from(x)));
+    /// let mut y = x;
+    /// 
+    /// y.fft_2d_cooley_tukey();
+    /// y.ifft_2d_cooley_tukey();
+    /// 
+    /// assert_eq!(x, y);
+    /// ```
+    fn ifft_2d_cooley_tukey(&mut self)
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:;
+
+    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &[[Rhs; P]; N]) -> Self::Array2d<<T as Mul<Rhs>>::Output, M, P>
     where
         T: /*~const*/ Mul<Rhs, Output: /*~const*/ AddAssign + /*~const*/ Zero> + Copy,
         Rhs: Copy;
@@ -54,6 +177,97 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         {
             Zero::zero()
         }))
+    }
+    
+    fn convolve_2d_direct<Rhs, const H: usize, const W: usize>(&self, rhs: &[[Rhs; W]; H]) -> [[<T as Mul<Rhs>>::Output; N + W - 1]; M + H - 1]
+    where
+        T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
+        Rhs: Copy
+    {
+        ArrayOps::fill(|r| ArrayOps::fill(|c| {
+            let mut y = Zero::zero();
+            for k in (r + 1).saturating_sub(M)..H.min(r + 1)
+            {
+                for j in (c + 1).saturating_sub(N)..W.min(c + 1)
+                {
+                    y += self[r - k][c - j]*rhs[k][j];
+                }
+            }
+            y
+        }))
+    }
+    
+    fn convolve_2d_fft_cooley_tukey<Rhs, const W: usize, const H: usize, const U: usize, const V: usize>(&self, rhs: &[[Rhs; W]; H]) -> [[<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + W - 1]; M + H - 1]
+    where
+        T: Float + Copy,
+        Rhs: Float + Copy,
+        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        [(); U]:,
+        [(); U - M]:,
+        [(); U - H]:,
+        [(); U - (M + H - 1)]:,
+        [(); U.is_power_of_two() as usize - 1]:,
+        [(); V]:,
+        [(); V - N]:,
+        [(); V - W]:,
+        [(); V - (N + W - 1)]:,
+        [(); V.is_power_of_two() as usize - 1]:
+    {
+        let mut x = self.map(|x| x.map(|x| <Complex<T> as From<T>>::from(x)).extend(|_| Complex::zero())).extend(|_| [Complex::zero(); V]);
+        let mut h = rhs.map(|h| h.map(|h| <Complex<Rhs> as From<Rhs>>::from(h)).extend(|_| Complex::zero())).extend(|_| [Complex::zero(); V]);
+
+        x.fft_2d_cooley_tukey();
+        h.fft_2d_cooley_tukey();
+
+        let mut y = x.comap(h, |x, h| x.mul_each(h));
+
+        y.ifft_2d_cooley_tukey();
+
+        y.truncate().map(|y| y.truncate().map(|y| y.re()))
+    }
+
+    fn fft_2d_cooley_tukey(&mut self)
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:
+    {
+        let mut t: [[T; M]; N] = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.fft_cooley_tukey();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.fft_cooley_tukey();
+        }
+    }
+    
+    fn ifft_2d_cooley_tukey(&mut self)
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:
+    {
+        let mut t: [[T; M]; N] = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.ifft_cooley_tukey();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.ifft_cooley_tukey();
+        }
     }
 
     fn mul_matrix<Rhs, const P: usize>(&self, rhs: &Self::Array2d<Rhs, N, P>) -> Self::Array2d<<T as Mul<Rhs>>::Output, M, P>

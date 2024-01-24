@@ -199,6 +199,25 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
         [(); N.is_power_of_two() as usize - 1]:;
+        
+    /// Performs an iterative, in-place radix-2 IFFT algorithm as described in https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use num::Complex;
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    ///     .map(|x| <Complex<_> as From<_>>::from(x));
+    /// 
+    /// let mut y = x;
+    /// 
+    /// y.fft_cooley_tukey();
+    /// y.ifft_cooley_tukey();
+    /// 
+    /// let avg_error = x.comap(y, |x, y| (x - y).norm()).avg();
+    /// assert!(avg_error < 1.0e-16);
+    /// ```
     fn ifft_cooley_tukey(&mut self)
     where
         T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
