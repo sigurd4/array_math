@@ -1,4 +1,4 @@
-use std::{f64::consts::TAU, ops::{AddAssign, MulAssign, Mul, Neg, Div}};
+use std::{f64::consts::TAU, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, SubAssign}};
 
 use array__ops::ArrayOps;
 use num::{complex::ComplexFloat, traits::Inv, Complex, Float, NumCast, One, Zero};
@@ -88,10 +88,80 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
 
-    fn mul_polynomial<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
+    /// Performs direct convolution.
+    /// This is equivalent to a polynomial multiplication.
+    /// 
+    /// # Examples
+    /// 
+    /// Convolving a unit impulse yields the impulse response.
+    /// 
+    /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0];
+    /// let h = [1.0, 0.6, 0.3];
+    /// 
+    /// let y = x.convolve_direct(&h);
+    /// 
+    /// assert_eq!(y, h);
+    /// ```
+    /// 
+    /// Convolution can be done directly `O(n^2)` or using FFT `O(nlog(n))`.
+    /// 
+    /// ```rust
+    /// #![feature(generic_arg_infer)]
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
+    /// let h = [1.0, 0.6, 0.3];
+    /// 
+    /// let y_fft = x.convolve_fft_cooley_tukey::<_, _, 8>(&h);
+    /// let y_direct = x.convolve_direct(&h);
+    /// 
+    /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
+    /// assert!(avg_error < 1.0e-15);
+    /// ```
+    fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
     where
         T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy;
+
+    /// Performs convolution using FFT
+    /// 
+    /// # Examples
+    /// 
+    /// Convolution can be done directly `O(n^2)` or using FFT `O(nlog(n))`.
+    /// 
+    /// ```rust
+    /// #![feature(generic_arg_infer)]
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
+    /// let h = [1.0, 0.6, 0.3];
+    /// 
+    /// let y_fft = x.convolve_fft_cooley_tukey::<_, _, 8>(&h);
+    /// let y_direct = x.convolve_direct(&h);
+    /// 
+    /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
+    /// assert!(avg_error < 1.0e-15);
+    /// ```
+    fn convolve_fft_cooley_tukey<Rhs, const M: usize, const L: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    where
+        T: Float + Copy,
+        Rhs: Float + Copy,
+        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        [(); L - N]:,
+        [(); L - M]:,
+        [(); L - (N + M - 1)]:,
+        [(); L.is_power_of_two() as usize - 1]:;
 
     fn recip_all(self) -> [<T as Inv>::Output; N]
     where
@@ -305,7 +375,7 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
         self.mul_all(self.magnitude_inv()*magnitude)
     }
     
-    fn mul_polynomial<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
+    fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
     where
         T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy
@@ -318,6 +388,32 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
             }
             y
         })
+    }
+    
+    fn convolve_fft_cooley_tukey<Rhs, const M: usize, const L: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    where
+        T: Float + Copy,
+        Rhs: Float + Copy,
+        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        [(); L]:,
+        [(); L - N]:,
+        [(); L - M]:,
+        [(); L - (N + M - 1)]:,
+        [(); L.is_power_of_two() as usize - 1]:
+    {
+        let mut x = self.map(|x| <Complex<T> as From<T>>::from(x)).extend(|_| Complex::zero());
+        let mut h = rhs.map(|h| <Complex<Rhs> as From<Rhs>>::from(h)).extend(|_| Complex::<Rhs>::zero());
+
+        x.fft_cooley_tukey();
+        h.fft_cooley_tukey();
+
+        let mut y = x.mul_each(h);
+
+        y.ifft_cooley_tukey();
+
+        y.truncate().map(|y| y.re())
     }
     
     fn recip_all(self) -> [<T as Inv>::Output; N]
@@ -415,18 +511,4 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
 
         self.mul_assign_all(<T as From<_>>::from(<Complex<_> as From<_>>::from(<T::Real as NumCast>::from(1.0/N as f64).unwrap())));
     }
-}
-
-#[test]
-fn test_conv()
-{
-    let x = [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-        .map(|x| <Complex<_> as From<_>>::from(x));
-    let mut y = x;
-
-    y.fft_cooley_tukey();
-    y.ifft_cooley_tukey();
-
-    let avg_error = x.comap(y, |x, y| (x - y).norm()).avg();
-    assert!(avg_error < 1.0e-16);
 }

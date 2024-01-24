@@ -5,6 +5,7 @@
 #![feature(const_option)]
 #![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
+#![feature(generic_arg_infer)]
 
 #![feature(generic_const_exprs)]
 #![feature(const_closures)]
@@ -63,28 +64,28 @@ mod test
             [-1, 1, 4, -2],
         ].map_nd(|a: i8| a as f32);
 
-        let (l, u, p) = crate::lup_matrix(&a);
+        let (l, u, p) = a.lup_matrix();
         
         println!("P = {:?}", p);
         println!("L = {:?}", l);
         println!("U = {:?}", u);
 
-        let lu = crate::mul_matrix(&l, &u);
-        let pa = crate::mul_matrix(&p, &a);
+        let lu = l.mul_matrix(&u);
+        let pa = p.mul_matrix(&a);
 
         println!("LU = {:?}", lu);
         println!("PA = {:?}", pa);
 
-        let det_a = crate::det_matrix(&a);
+        let det_a = a.det_matrix();
         
         println!("det(A) = {:?}", det_a);
 
-        if let Some(inv_a) = crate::inv_matrix(&a)
+        if let Some(inv_a) = a.inv_matrix()
         {
             println!("A^(-1) = {:?}", inv_a);
             
-            println!("A^(-1)*A = {:?}", crate::mul_matrix(&inv_a, &a));
-            println!("A*A^(-1) = {:?}", crate::mul_matrix(&a, &inv_a));
+            println!("A^(-1)*A = {:?}", inv_a.mul_matrix(&a));
+            println!("A*A^(-1) = {:?}", a.mul_matrix(&inv_a));
         }
     }
 }
