@@ -135,10 +135,18 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
         [(); N.is_power_of_two() as usize - 1]:,
         [(); M.is_power_of_two() as usize - 1]:;
 
-    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &[[Rhs; P]; N]) -> Self::Array2d<<T as Mul<Rhs>>::Output, M, P>
+    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &[[Rhs; P]; N]) -> [[<T as Mul<Rhs>>::Output; P]; M]
     where
-        T: /*~const*/ Mul<Rhs, Output: /*~const*/ AddAssign + /*~const*/ Zero> + Copy,
+        T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy;
+    fn mul_matrix_assign<Rhs>(&mut self, rhs: &[[Rhs; N]; N])
+    where
+        T: Mul<Rhs> + Copy + AddAssign<<T as Mul<Rhs>>::Output> + Zero,
+        Rhs: Copy;
+    fn rmul_matrix_assign<Rhs>(&mut self, rhs: &[[Rhs; M]; M])
+    where
+        T: Copy + AddAssign<<Rhs as Mul<T>>::Output> + Zero,
+        Rhs: Copy + Mul<T>;
     
     fn pivot_matrix(&self) -> [[T; M]; M]
     where
@@ -270,7 +278,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         }
     }
 
-    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &Self::Array2d<Rhs, N, P>) -> Self::Array2d<<T as Mul<Rhs>>::Output, M, P>
+    fn mul_matrix<Rhs, const P: usize>(&self, rhs: &[[Rhs; P]; N]) -> [[<T as Mul<Rhs>>::Output; P]; M]
     where
         T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy
@@ -295,6 +303,55 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         }
     
         prod
+    }
+    fn mul_matrix_assign<Rhs>(&mut self, rhs: &[[Rhs; N]; N])
+    where
+        T: Mul<Rhs> + Copy + AddAssign<<T as Mul<Rhs>>::Output> + Zero,
+        Rhs: Copy
+    {
+        let mut m = 0;
+        while m != M
+        {
+            let mut buf = [Zero::zero(); N];
+            core::mem::swap(&mut self[m], &mut buf);
+            let mut p = 0;
+            while p != N
+            {
+                let mut n = 0;
+                while n != N
+                {
+                    self[m][p] += buf[n]*rhs[n][p];
+                    n += 1;
+                }
+                p += 1;
+            }
+            m += 1;
+        }
+    }
+    fn rmul_matrix_assign<Rhs>(&mut self, rhs: &[[Rhs; M]; M])
+    where
+        T: Copy + AddAssign<<Rhs as Mul<T>>::Output> + Zero,
+        Rhs: Copy + Mul<T>
+    {
+        let mut buf = [[Zero::zero(); N]; M];
+        core::mem::swap(self, &mut buf);
+
+        let mut m = 0;
+        while m != M
+        {
+            let mut p = 0;
+            while p != N
+            {
+                let mut n = 0;
+                while n != M
+                {
+                    self[m][p] += rhs[m][n]*buf[n][p];
+                    n += 1;
+                }
+                p += 1;
+            }
+            m += 1;
+        }
     }
     
     fn pivot_matrix(&self) -> [[T; M]; M]
