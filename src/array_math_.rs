@@ -87,6 +87,14 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
+        
+    fn normalize_assign(&mut self)
+    where
+        T: Mul<T, Output: AddAssign + Zero + Float + Copy> + MulAssign<<T as Mul<T>>::Output> + Copy;
+
+    fn normalize_assign_to<Rhs>(&mut self, magnitude: Rhs)
+    where
+        T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + MulAssign<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
 
     /// Performs direct convolution.
     /// This is equivalent to a polynomial multiplication.
@@ -393,6 +401,21 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     {
         self.mul_all(self.magnitude_inv()*magnitude)
     }
+    
+    fn normalize_assign(&mut self)
+    where
+        T: Mul<T, Output: AddAssign + Zero + Float + Copy> + MulAssign<<T as Mul<T>>::Output> + Copy
+    {
+        self.mul_assign_all(self.magnitude_inv())
+    }
+
+    fn normalize_assign_to<Rhs>(&mut self, magnitude: Rhs)
+    where
+        T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + MulAssign<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
+    {
+        self.mul_assign_all(self.magnitude_inv()*magnitude)
+    }
+
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
     where
