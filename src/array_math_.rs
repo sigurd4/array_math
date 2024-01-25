@@ -468,15 +468,7 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     where
         T: Inv<Output = T>
     {
-        let mut i = 0;
-        while i < N
-        {
-            unsafe {
-                let ptr = self.as_mut_ptr().add(i);
-                ptr.write(ptr.read().inv());
-            }
-            i += 1;
-        }
+        self.map_assign(Inv::inv)
     }
 
     fn conj_all(mut self) -> Self
