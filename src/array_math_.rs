@@ -1,6 +1,6 @@
 use std::{f64::consts::TAU, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, SubAssign}};
 
-use array__ops::ArrayOps;
+use array__ops::{ArrayOps, SliceOps};
 use num::{complex::ComplexFloat, traits::Inv, Complex, Float, NumCast, One, Zero};
 
 #[const_trait]
@@ -127,7 +127,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
     /// let h = [1.0, 0.6, 0.3];
     /// 
-    /// let y_fft = x.convolve_fft_cooley_tukey::<_, _, 8>(&h);
+    /// let y_fft = x.convolve_fft(&h);
     /// let y_direct = x.convolve_direct(&h);
     /// 
     /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
@@ -138,7 +138,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy;
 
-    /// Performs convolution using FFT
+    /// Performs convolution using FFT.
     /// 
     /// # Examples
     /// 
@@ -153,23 +153,24 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
     /// let h = [1.0, 0.6, 0.3];
     /// 
-    /// let y_fft = x.convolve_fft_cooley_tukey::<_, _, 8>(&h);
+    /// let y_fft = x.convolve_fft(&h);
     /// let y_direct = x.convolve_direct(&h);
     /// 
     /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
     /// assert!(avg_error < 1.0e-15);
     /// ```
-    fn convolve_fft_cooley_tukey<Rhs, const M: usize, const L: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    fn convolve_fft<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
     where
         T: Float + Copy,
         Rhs: Float + Copy,
-        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
-        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
-        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
-        [(); L - N]:,
-        [(); L - M]:,
-        [(); L - (N + M - 1)]:,
-        [(); L.is_power_of_two() as usize - 1]:;
+        Complex<T>: MulAssign + AddAssign + ComplexFloat<Real = T> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + AddAssign + ComplexFloat<Real = Rhs>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: ComplexFloat<Real: Float> + Into<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>: MulAssign + AddAssign + ComplexFloat<Real = <<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>,
+        [(); (N + M - 1).next_power_of_two() - N]:,
+        [(); (N + M - 1).next_power_of_two() - M]:,
+        [(); (N + M - 1).next_power_of_two() - (N + M - 1)]:,
+        [(); (N + M - 1).next_power_of_two()/2 + 1]:;
 
     fn recip_all(self) -> [<T as Inv>::Output; N]
     where
@@ -186,6 +187,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         T: ComplexFloat;
 
     /// Performs an iterative, in-place radix-2 FFT algorithm as described in https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms.
+    /// If `N` is not a power of two, it uses the DFT, which is a lot slower.
     /// 
     /// # Examples
     /// ```rust
@@ -197,18 +199,18 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// 
     /// let mut y = x;
     /// 
-    /// y.fft_cooley_tukey();
-    /// y.ifft_cooley_tukey();
+    /// y.fft();
+    /// y.ifft();
     /// 
     /// let avg_error = x.comap(y, |x, y| (x - y).norm()).avg();
     /// assert!(avg_error < 1.0e-16);
     /// ```
-    fn fft_cooley_tukey(&mut self)
+    fn fft(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
-        [(); N.is_power_of_two() as usize - 1]:;
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>;
         
     /// Performs an iterative, in-place radix-2 IFFT algorithm as described in https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms.
+    /// If `N` is not a power of two, it uses the IDFT, which is a lot slower.
     /// 
     /// # Examples
     /// ```rust
@@ -220,16 +222,70 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// 
     /// let mut y = x;
     /// 
-    /// y.fft_cooley_tukey();
-    /// y.ifft_cooley_tukey();
+    /// y.fft();
+    /// y.ifft();
     /// 
     /// let avg_error = x.comap(y, |x, y| (x - y).norm()).avg();
     /// assert!(avg_error < 1.0e-16);
     /// ```
-    fn ifft_cooley_tukey(&mut self)
+    fn ifft(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
-        [(); N.is_power_of_two() as usize - 1]:;
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>;
+    
+    /// Performs the FFT on an array of real floating-point numbers of length `N`.
+    /// The result is an array of complex numbers of length `N/2 + 1`.
+    /// This is truncated because the last half of the values are redundant, since they are a conjugate mirror-image of the first half.
+    /// `N` should ideally be a power of two.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// #![feature(generic_arg_infer)]
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use num::{Complex, Zero};
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0, 1.0, 0.0, 0.0];
+    /// 
+    /// let mut z = [Complex::zero(); _];
+    /// x.real_fft(&mut z);
+    /// 
+    /// let mut y = [0.0; _];
+    /// y.real_ifft(&z);
+    /// 
+    /// assert_eq!(x, y);
+    /// ```
+    fn real_fft(&self, y: &mut [Complex<T>; N/2 + 1])
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign;
+        
+    /// Performs the IFFT on a truncated array of complex floating-point numbers of length `N/2 + 1`.
+    /// The result is an array of real numbers of length `N`.
+    /// `N` should ideally be a power of two.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// #![feature(generic_arg_infer)]
+    /// #![feature(generic_const_exprs)]
+    /// 
+    /// use num::{Complex, Zero};
+    /// use array_math::*;
+    /// 
+    /// let x = [1.0, 1.0, 0.0, 0.0];
+    /// 
+    /// let mut z = [Complex::zero(); _];
+    /// x.real_fft(&mut z);
+    /// 
+    /// let mut y = [0.0; _];
+    /// y.real_ifft(&z);
+    /// 
+    /// assert_eq!(x, y);
+    /// ```
+    fn real_ifft(&mut self, x: &[Complex<T>; N/2 + 1])
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign;
 }
 
 impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
@@ -432,30 +488,32 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
         })
     }
     
-    fn convolve_fft_cooley_tukey<Rhs, const M: usize, const L: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    fn convolve_fft<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
     where
         T: Float + Copy,
         Rhs: Float + Copy,
-        Complex<T>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<T> as ComplexFloat>::Real>> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
-        Complex<Rhs>: MulAssign + ComplexFloat<Real: Float> + From<Complex<<Complex<Rhs> as ComplexFloat>::Real>>,
-        <Complex<T> as Mul<Complex<Rhs>>>::Output: MulAssign + ComplexFloat<Real: Float> + From<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
-        [(); L]:,
-        [(); L - N]:,
-        [(); L - M]:,
-        [(); L - (N + M - 1)]:,
-        [(); L.is_power_of_two() as usize - 1]:
+        Complex<T>: MulAssign + AddAssign + ComplexFloat<Real = T> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
+        Complex<Rhs>: MulAssign + AddAssign + ComplexFloat<Real = Rhs>,
+        <Complex<T> as Mul<Complex<Rhs>>>::Output: ComplexFloat<Real: Float> + Into<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
+        Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>: MulAssign + AddAssign + ComplexFloat<Real = <<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>,
+        [(); (N + M - 1).next_power_of_two() - N]:,
+        [(); (N + M - 1).next_power_of_two() - M]:,
+        [(); (N + M - 1).next_power_of_two() - (N + M - 1)]:,
+        [(); (N + M - 1).next_power_of_two()/2 + 1]:
     {
-        let mut x = self.map(|x| <Complex<T> as From<T>>::from(x)).extend(|_| Complex::zero());
-        let mut h = rhs.map(|h| <Complex<Rhs> as From<Rhs>>::from(h)).extend(|_| Complex::<Rhs>::zero());
+        let x: [T; (N + M - 1).next_power_of_two()] = self.resize(|_| T::zero());
+        let h: [Rhs; (N + M - 1).next_power_of_two()] = rhs.resize(|_| Rhs::zero());
 
-        x.fft_cooley_tukey();
-        h.fft_cooley_tukey();
+        let mut x_f = [Complex::zero(); _];
+        let mut h_f = [Complex::zero(); _];
+        x.real_fft(&mut x_f);
+        h.real_fft(&mut h_f);
 
-        let mut y = x.mul_each(h);
+        let y_f = x_f.comap(h_f, |x_f, h_f| (x_f*h_f).into());
+        let mut y = [Zero::zero(); (N + M - 1).next_power_of_two()];
+        y.real_ifft(&y_f);
 
-        y.ifft_cooley_tukey();
-
-        y.truncate().map(|y| y.re())
+        y.truncate()
     }
     
     fn recip_all(self) -> [<T as Inv>::Output; N]
@@ -493,56 +551,153 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
         }
     }
     
-    fn fft_cooley_tukey(&mut self)
+    fn fft(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
-        [(); N.is_power_of_two() as usize - 1]:
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
     {
-        self.bit_reverse_permutation();
-        
-        for s in 0..N.ilog2()
+        if N.is_power_of_two()
         {
-            let m = 2usize << s;
-            let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(-TAU/m as f64).unwrap()));
-            for k in (0..N).step_by(m)
+            // Radix 2 FFT
+
+            self.as_mut_slice()
+                .bit_reverse_permutation();
+            
+            for s in 0..N.ilog2()
             {
-                let mut w = T::one();
-                for j in 0..m/2
+                let m = 2usize << s;
+                let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(-TAU/m as f64).unwrap()));
+                for k in (0..N).step_by(m)
                 {
-                    let t = w*self[k + j + m/2];
-                    let u = self[k + j];
-                    self[k + j] = u + t;
-                    self[k + j + m/2] = u - t;
-                    w *= wm;
+                    let mut w = T::one();
+                    for j in 0..m/2
+                    {
+                        let t = w*self[k + j + m/2];
+                        let u = self[k + j];
+                        self[k + j] = u + t;
+                        self[k + j + m/2] = u - t;
+                        w *= wm;
+                    }
                 }
             }
         }
-    }
-    fn ifft_cooley_tukey(&mut self)
-    where
-        T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>,
-        [(); N.is_power_of_two() as usize - 1]:
-    {
-        self.bit_reverse_permutation();
-        
-        for s in 0..N.ilog2()
+        else
         {
-            let m = 2usize << s;
-            let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(TAU/m as f64).unwrap()));
-            for k in (0..N).step_by(m)
+            // DFT
+
+            let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(-TAU/N as f64).unwrap()));
+            let mut wnk = T::one();
+
+            let mut buf = [T::zero(); N];
+            std::mem::swap(&mut buf, self);
+            for k in 0..N
             {
-                let mut w = T::one();
-                for j in 0..m/2
+                let mut wnki = T::one();
+                for i in 0..N
                 {
-                    let t = w*self[k + j + m/2];
-                    let u = self[k + j];
-                    self[k + j] = u + t;
-                    self[k + j + m/2] = u - t;
-                    w *= wm;
+                    self[k] += buf[i]*wnki;
+                    wnki *= wnk;
                 }
+
+                wnk *= wn;
+            }
+        }
+    }
+    fn ifft(&mut self)
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
+    {
+        if N.is_power_of_two()
+        {
+            // Radix 2 IFFT
+
+            self.as_mut_slice().bit_reverse_permutation();
+            
+            for s in 0..N.ilog2()
+            {
+                let m = 2usize << s;
+                let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(TAU/m as f64).unwrap()));
+                for k in (0..N).step_by(m)
+                {
+                    let mut w = T::one();
+                    for j in 0..m/2
+                    {
+                        let t = w*self[k + j + m/2];
+                        let u = self[k + j];
+                        self[k + j] = u + t;
+                        self[k + j + m/2] = u - t;
+                        w *= wm;
+                    }
+                }
+            }
+        }
+        else
+        {
+            // IDFT
+
+            let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(TAU/N as f64).unwrap()));
+            let mut wnk = T::one();
+
+            let mut buf = [T::zero(); N];
+            std::mem::swap(&mut buf, self);
+            for k in 0..N
+            {
+                let mut wnki = T::one();
+                for i in 0..N
+                {
+                    self[k] += buf[i]*wnki;
+                    wnki *= wnk;
+                }
+
+                wnk *= wn;
             }
         }
 
         self.mul_assign_all(<T as From<_>>::from(<Complex<_> as From<_>>::from(<T::Real as NumCast>::from(1.0/N as f64).unwrap())));
     }
+    
+    fn real_fft(&self, y: &mut [Complex<T>; N/2 + 1])
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign
+    {
+        let mut x = self.map(|x| <Complex<_> as From<_>>::from(x));
+        x.fft();
+
+        for (x, y) in x.into_iter()
+            .zip(y.iter_mut())
+        {
+            *y = x;
+        }
+    }
+    
+    fn real_ifft(&mut self, x: &[Complex<T>; N/2 + 1])
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign
+    {
+        let mut x = <[Complex<T>; N]>::fill(|i| if i < N/2 + 1 {x[i]} else {x[N - i].conj()});
+        x.ifft();
+
+        for (x, y) in x.into_iter()
+            .zip(self.iter_mut())
+        {
+            *y = x.re();
+        }
+    }
+}
+
+#[test]
+fn test()
+{
+    let x = [1.0, 1.0, 0.0, 0.0, 0.0];
+
+    let mut z = [Complex::zero(); _];
+    x.real_fft(&mut z);
+    
+    let mut y = [0.0; _];
+    y.real_ifft(&z);
+
+    //assert_eq!(x, y);
+
+    println!("{:?}", y)
 }

@@ -6,6 +6,7 @@
 #![feature(const_refs_to_cell)]
 #![feature(const_mut_refs)]
 #![feature(generic_arg_infer)]
+#![feature(array_methods)]
 
 #![feature(generic_const_exprs)]
 #![feature(const_closures)]
@@ -18,12 +19,17 @@ moddef::moddef!(
         array_math_,
         matrix_math,
         square_matrix_math
+    },
+    mod {
+        plot for cfg(test)
     }
 );
 
 #[cfg(test)]
 mod test
 {
+    use std::time::Duration;
+
     use super::*;
 
     #[test]
@@ -88,5 +94,19 @@ mod test
             println!("A^(-1)*A = {:?}", inv_a.mul_matrix(&a));
             println!("A*A^(-1) = {:?}", a.mul_matrix(&inv_a));
         }
+    }
+
+    const PLOT_TARGET: &str = "plots";
+
+    pub fn benchmark<T, R>(x: &[T], f: &dyn Fn(T) -> R) -> Duration
+    where
+        T: Clone
+    {
+        use std::time::SystemTime;
+
+        let x = x.to_vec();
+        let t0 = SystemTime::now();
+        x.into_iter().for_each(|x| {f(x);});
+        t0.elapsed().unwrap()
     }
 }

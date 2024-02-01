@@ -12,6 +12,10 @@ repository = "https://github.com/sigurd4/array_math"
 moddef = "0.2.2"
 num = "0.4.1"
 array__ops = {version = "0.1.10", features = ["std"]}
-slice_math = "0.1.2"
+slice_math = "0.1.3"
 #float_approx_math = "0.1.9"
 #num_identities_const = "0.1.0"
+
+[dev-dependencies]
+plotters = "0.3.5"
+linspace = "0.1.1"
