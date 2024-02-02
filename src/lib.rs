@@ -21,7 +21,8 @@ moddef::moddef!(
         square_matrix_math
     },
     mod {
-        plot for cfg(test)
+        plot for cfg(test),
+        fft
     }
 );
 

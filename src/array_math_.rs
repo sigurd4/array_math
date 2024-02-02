@@ -3,6 +3,8 @@ use std::{f64::consts::TAU, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign
 use array__ops::{ArrayOps, SliceOps};
 use num::{complex::ComplexFloat, traits::Inv, Complex, Float, NumCast, One, Zero};
 
+use crate::fft;
+
 #[const_trait]
 pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 {
@@ -554,101 +556,18 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
     {
-        if N.is_power_of_two()
+        if !fft::fft_radix2_unscaled::<_, _, false>(self)
         {
-            // Radix 2 FFT
-
-            self.as_mut_slice()
-                .bit_reverse_permutation();
-            
-            for s in 0..N.ilog2()
-            {
-                let m = 2usize << s;
-                let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(-TAU/m as f64).unwrap()));
-                for k in (0..N).step_by(m)
-                {
-                    let mut w = T::one();
-                    for j in 0..m/2
-                    {
-                        let t = w*self[k + j + m/2];
-                        let u = self[k + j];
-                        self[k + j] = u + t;
-                        self[k + j + m/2] = u - t;
-                        w *= wm;
-                    }
-                }
-            }
-        }
-        else
-        {
-            // DFT
-
-            let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(-TAU/N as f64).unwrap()));
-            let mut wnk = T::one();
-
-            let mut buf = [T::zero(); N];
-            std::mem::swap(&mut buf, self);
-            for k in 0..N
-            {
-                let mut wnki = T::one();
-                for i in 0..N
-                {
-                    self[k] += buf[i]*wnki;
-                    wnki *= wnk;
-                }
-
-                wnk *= wn;
-            }
+            fft::dft_unscaled::<_, _, false>(self)
         }
     }
     fn ifft(&mut self)
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
     {
-        if N.is_power_of_two()
+        if !fft::fft_radix2_unscaled::<_, _, true>(self)
         {
-            // Radix 2 IFFT
-
-            self.as_mut_slice().bit_reverse_permutation();
-            
-            for s in 0..N.ilog2()
-            {
-                let m = 2usize << s;
-                let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(TAU/m as f64).unwrap()));
-                for k in (0..N).step_by(m)
-                {
-                    let mut w = T::one();
-                    for j in 0..m/2
-                    {
-                        let t = w*self[k + j + m/2];
-                        let u = self[k + j];
-                        self[k + j] = u + t;
-                        self[k + j + m/2] = u - t;
-                        w *= wm;
-                    }
-                }
-            }
-        }
-        else
-        {
-            // IDFT
-
-            let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(TAU/N as f64).unwrap()));
-            let mut wnk = T::one();
-
-            let mut buf = [T::zero(); N];
-            std::mem::swap(&mut buf, self);
-            for k in 0..N
-            {
-                let mut wnki = T::one();
-                for i in 0..N
-                {
-                    self[k] += buf[i]*wnki;
-                    wnki *= wnk;
-                }
-
-                wnk *= wn;
-            }
+            fft::dft_unscaled::<_, _, true>(self)
         }
 
         self.mul_assign_all(<T as From<_>>::from(<Complex<_> as From<_>>::from(<T::Real as NumCast>::from(1.0/N as f64).unwrap())));
