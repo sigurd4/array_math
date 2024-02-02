@@ -5,7 +5,7 @@ use num::{complex::ComplexFloat, Complex, Float, NumCast};
 
 pub fn fft_radix2_unscaled<T, const N: usize, const I: bool>(array: &mut [T; N]) -> bool
 where
-    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
+    T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>
 {
     if N.is_power_of_two()
     {
