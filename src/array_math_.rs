@@ -262,7 +262,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         
     /// Performs the IFFT on a truncated array of complex floating-point numbers of length `N/2 + 1`.
     /// The result is an array of real numbers of length `N`.
-    /// if `N` is not a power of two, the naive DFT is used instead, which is a lot slower.
+    /// if `N` is not a power of two, the naive IDFT is used instead, which is a lot slower.
     /// 
     /// # Examples
     /// ```rust
