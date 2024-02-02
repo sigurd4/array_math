@@ -235,7 +235,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// Performs the FFT on an array of real floating-point numbers of length `N`.
     /// The result is an array of complex numbers of length `N/2 + 1`.
     /// This is truncated because the last half of the values are redundant, since they are a conjugate mirror-image of the first half.
-    /// `N` should ideally be a power of two.
+    /// if `N` is not a power of two, the naive DFT is used instead, which is a lot slower.
     /// 
     /// # Examples
     /// ```rust
@@ -262,7 +262,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         
     /// Performs the IFFT on a truncated array of complex floating-point numbers of length `N/2 + 1`.
     /// The result is an array of real numbers of length `N`.
-    /// `N` should ideally be a power of two.
+    /// if `N` is not a power of two, the naive DFT is used instead, which is a lot slower.
     /// 
     /// # Examples
     /// ```rust
@@ -471,7 +471,6 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     {
         self.mul_assign_all(self.magnitude_inv()*magnitude)
     }
-
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
     where
