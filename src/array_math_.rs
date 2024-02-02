@@ -556,7 +556,7 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
     {
-        if !fft::fft_radix2_unscaled::<_, _, false>(self)
+        if !fft::fft_radix2_unscaled::<_, _, false>(self) || !fft::fft_radix3_unscaled::<_, _, false>(self)
         {
             fft::dft_unscaled::<_, _, false>(self)
         }
@@ -565,7 +565,7 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
     {
-        if !fft::fft_radix2_unscaled::<_, _, true>(self)
+        if !fft::fft_radix2_unscaled::<_, _, true>(self) || !fft::fft_radix3_unscaled::<_, _, true>(self)
         {
             fft::dft_unscaled::<_, _, true>(self)
         }

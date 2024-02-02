@@ -22,7 +22,8 @@ moddef::moddef!(
     },
     mod {
         plot for cfg(test),
-        fft
+        fft,
+        util
     }
 );
 
