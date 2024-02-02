@@ -7,6 +7,8 @@
 #![feature(const_mut_refs)]
 #![feature(generic_arg_infer)]
 #![feature(array_methods)]
+#![feature(inline_const)]
+#![feature(let_chains)]
 
 #![feature(generic_const_exprs)]
 #![feature(const_closures)]
@@ -30,7 +32,10 @@ moddef::moddef!(
 #[cfg(test)]
 mod test
 {
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime};
+
+    use num::Complex;
+    use rustfft::FftPlanner;
 
     use super::*;
 
@@ -110,5 +115,101 @@ mod test
         let t0 = SystemTime::now();
         x.into_iter().for_each(|x| {f(x);});
         t0.elapsed().unwrap()
+    }
+
+    #[test]
+    #[ignore]
+    fn bench()
+    {
+        let fn_name = "FFT";
+
+        let plot_title: &str = &format!("{fn_name} benchmark");
+        let plot_path: &str = &format!("{PLOT_TARGET}/{fn_name}_benchmark.png");
+
+        const N: usize = 8;
+        const I: [usize; N] = [
+            2,
+            4,
+            16,
+            32,
+            64,
+            128,
+            256,
+            512
+        ];
+
+        fn f1<const N: usize>(array: &mut [Complex<f32>; N])
+        {
+            array.fft();
+            array.ifft();
+        }
+        
+        fn f2<const N: usize>(array: &mut [Complex<f32>; N])
+        {
+            array.as_mut_slice()
+                .fft();
+            array.as_mut_slice()
+                .ifft();
+        }
+
+        fn f3<const N: usize>(mut array: &mut [Complex<f32>; N])
+        {
+            let fft = FftPlanner::new()
+                .plan_fft_forward(array.len());
+            fft.process(array);
+            let ifft = FftPlanner::new()
+                .plan_fft_inverse(array.len());
+            ifft.process(array);
+        }
+
+        fn t<const N: usize>(f: impl Fn(&mut [Complex<f32>; N])) -> f32
+        {
+            let mut x = [Complex::from(1.0); N];
+            let t0 = SystemTime::now();
+            for _ in 0..1024
+            {
+                f(&mut x);
+            }
+            let dt = SystemTime::now().duration_since(t0).unwrap();
+            println!("Done N = {}", N);
+            dt.as_secs_f32()
+        }
+
+        let t = [
+            [
+                t::<{I[0]}>(f1),
+                t::<{I[1]}>(f1),
+                t::<{I[2]}>(f1),
+                t::<{I[3]}>(f1),
+                t::<{I[4]}>(f1),
+                t::<{I[5]}>(f1),
+                t::<{I[6]}>(f1),
+                t::<{I[7]}>(f1),
+            ],
+            [
+                t::<{I[0]}>(f2),
+                t::<{I[1]}>(f2),
+                t::<{I[2]}>(f2),
+                t::<{I[3]}>(f2),
+                t::<{I[4]}>(f2),
+                t::<{I[5]}>(f2),
+                t::<{I[6]}>(f2),
+                t::<{I[7]}>(f2),
+            ],
+            [
+                t::<{I[0]}>(f3),
+                t::<{I[1]}>(f3),
+                t::<{I[2]}>(f3),
+                t::<{I[3]}>(f3),
+                t::<{I[4]}>(f3),
+                t::<{I[5]}>(f3),
+                t::<{I[6]}>(f3),
+                t::<{I[7]}>(f3),
+            ]
+        ];
+        
+        let n = I.map(|n| n as f32);
+
+        plot::plot_curves(plot_title, plot_path, [&n; _], t.each_ref()).expect("Plot error")
     }
 }

@@ -1,4 +1,4 @@
-use std::{ops::{Mul, AddAssign, MulAssign, SubAssign, DivAssign, Sub, Div, Neg}, mem::MaybeUninit};
+use std::{iter::Sum, mem::MaybeUninit, ops::{AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use array__ops::{Array2dOps, ArrayOps, min_len, max_len};
 use num::{complex::ComplexFloat, Complex, Float, One, Zero};
@@ -63,7 +63,7 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     ///     [1.0, 1.0]
     /// ];
     /// 
-    /// let y_fft = x.convolve_2d_fft::<_, _, _, 4, 4>(&h);
+    /// let y_fft = x.convolve_2d_fft(&h);
     /// let y_direct = x.convolve_2d_direct(&h);
     /// 
     /// let avg_error = y_fft.comap(y_direct, |y_fft, y_direct| y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg()).avg();
@@ -92,6 +92,8 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     /// 
     /// # Examples
     /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// 
     /// use num::Complex;
     /// use array_math::*;
     /// 
@@ -108,12 +110,14 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     /// ```
     fn fft_2d(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>;
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
         
     /// Performs the 2D Cooley-Tukey IFFT on a given matrix
     /// 
     /// # Examples
     /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// 
     /// use num::Complex;
     /// use array_math::*;
     /// 
@@ -130,7 +134,7 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     /// ```
     fn ifft_2d(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>;
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
         
     fn real_fft_2d_tall(&self, y: &mut [[Complex<T>; N]; M/2 + 1])
     where
@@ -238,14 +242,14 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         [(); (N + W - 1).next_power_of_two() - (N + W - 1)]:,
         [(); (N + W - 1).next_power_of_two()/2 + 1]:
     {
-        let x = self.each_ref()
-            .map(|x| x.extend(|_| Zero::zero()))
-            .extend(|_| [Zero::zero(); _]);
-        let h = rhs.each_ref()
-            .map(|h| h.extend(|_| Zero::zero()))
-            .extend(|_| [Zero::zero(); _]);
+        let x: [_; (M + H - 1).next_power_of_two()] = self
+            .map(|x| x.resize(|_| Zero::zero()))
+            .resize(|_| [Zero::zero(); (N + W - 1).next_power_of_two()]);
+        let h: [_; (M + H - 1).next_power_of_two()] = rhs
+            .map(|h| h.resize(|_| Zero::zero()))
+            .resize(|_| [Zero::zero(); (N + W - 1).next_power_of_two()]);
 
-        let mut y = [[Zero::zero(); _]; _];
+        let mut y = [[Zero::zero(); (N + W - 1).next_power_of_two()]; (M + H - 1).next_power_of_two()];
         if N + W >= M + H
         {
             let mut x_f = [[Complex::zero(); _]; _];
@@ -275,7 +279,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
 
     fn fft_2d(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
     {
         let mut t = self.transpose();
 
@@ -293,7 +297,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
     }
     fn ifft_2d(&mut self)
     where
-        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>>
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
     {
         let mut t = self.transpose();
 

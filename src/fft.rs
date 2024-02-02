@@ -1,17 +1,49 @@
-use std::{f64::consts::TAU, ops::{AddAssign, MulAssign}};
+use std::{f64::consts::TAU, iter::Sum, ops::{AddAssign, MulAssign}};
 
-use array__ops::SliceOps;
-use num::{complex::ComplexFloat, Complex, Float, NumCast, Zero};
+use array__ops::{ArrayOps, SliceOps};
+use num::{complex::ComplexFloat, integer::Roots, Complex, Float, NumCast, Zero};
 use slice_math::SliceMath;
 
-use crate::util;
+use crate::{util, ArrayMath};
+
+pub fn partial_fft_unscaled<T, const N: usize, const I: bool, const M: usize>(array: &mut [T; N]) -> [Vec<T>; M]
+where
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum,
+    [(); M - 1]:
+{
+    let spread = array.as_slice().spread_ref();
+
+    spread.map(|spread| {
+        let mut spread: Vec<_> = spread.into_iter()
+            .map(|x| **x)
+            .collect();
+        spread.fft_unscaled::<I>();
+        spread
+    })
+}
+
+pub fn partial_fft_unscaled_vec<T, const N: usize, const I: bool>(array: &mut [T; N], m: usize) -> Vec<Vec<T>>
+where
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
+{
+    (0..m).map(|k| {
+        let mut spread: Vec<_> = array[k..].into_iter()
+            .step_by(m)
+            .map(|&x| x)
+            .collect();
+        spread.fft_unscaled::<I>();
+        spread
+    }).collect()
+}
 
 pub fn fft_radix2_unscaled<T, const N: usize, const I: bool>(array: &mut [T; N]) -> bool
 where
-    T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
 {
     if N.is_power_of_two()
     {
+        // In-place FFT
+
         array.as_mut_slice()
             .bit_reverse_permutation();
         
@@ -34,47 +66,116 @@ where
         }
         return true
     }
+    if N % 2 == 0 
+    {
+        // Recursive FFT
+
+        let [even, odd] = partial_fft_unscaled::<_, _, I, _>(array);
+
+        let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/N as f64).unwrap()));
+        let mut wn_pk = T::one();
+        for k in 0..N/2
+        {
+            let p = even[k];
+            let q = wn_pk*odd[k];
+
+            array[k] = p + q;
+            array[k + N/2] = p - q;
+
+            wn_pk *= wn;
+        }
+        return true;
+    }
     false
 }
 
 pub fn fft_radix3_unscaled<T, const N: usize, const I: bool>(array: &mut [T; N]) -> bool
 where
-    T: ComplexFloat<Real: Float> + MulAssign + From<Complex<T::Real>>
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
 {
     const P: usize = 3;
 
-    if util::is_power_of(N, P)
+    if N % P == 0
     {
-        array.as_mut_slice()
-            .bit_reverse_permutation();
-        
+        // Recursive FFT
+
+        let [x1, x2, x3] = partial_fft_unscaled::<_, _, I, _>(array);
+
         let w3 = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/P as f64).unwrap()));
         let w3_p2 = w3*w3;
-        let mut m = P;
-        for _ in 0..N.ilog(P)
+        let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/N as f64).unwrap()));
+        let mut wn_pn = T::one();
+        for k in 0..N/P
         {
-            let wm = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/m as f64).unwrap()));
-            let wm_d3 = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/m as f64*P as f64).unwrap()));
-            let mut wm_pn = T::one();
-            for n in (0..N).step_by(m)
-            {
-                let mut wm_d3_pnk = T::one();
-                for k in 0..m/P
-                {
-                    let p = array[n + k] + array[n + k + m/P] + array[n + k + m/P*2];
-                    let q = wm_pn*(array[n + k] + array[n + k + m/P]*w3 + array[n + k + m/P*2]*w3_p2);
-                    let r = wm_pn*wm_pn*(array[n + k] + array[n + k + m/P]*w3_p2 + array[n + k + m/P*2]*w3);
+            let p = x1[k] + x2[k] + x3[k];
+            let q = wn_pn*(x1[k] + x2[k]*w3 + x3[k]*w3_p2);
+            let r = wn_pn*wn_pn*(x1[k] + x2[k]*w3_p2 + x3[k]*w3);
 
-                    array[n + k] = wm_d3_pnk*p;
-                    array[n + k + m/P] = wm_d3_pnk*q;
-                    array[n + k + m/P*2] = wm_d3_pnk*r;
-                    wm_d3_pnk *= wm_d3;
-                }
-                wm_pn *= wm;
-            }
-            m *= P;
+            array[k] = p;
+            array[k + N/P] = q;
+            array[k + N/P*2] = r;
+            wn_pn *= wn;
         }
-        return true
+        return true;
+    }
+    false
+}
+
+pub fn fft_radix_p_unscaled<T, const N: usize, const P: usize, const I: bool>(array: &mut [T; N]) -> bool
+where
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum,
+    [(); P - 1]:
+{
+    if N % P == 0
+    {
+        // Recursive FFT
+
+        let x: [_; P] = partial_fft_unscaled::<_, _, I, _>(array);
+
+        let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/N as f64).unwrap()));
+        let mut wn_pn = T::one();
+        let m = N/P;
+        for k in 0..N
+        {
+            array[k] = x.each_ref()
+                .map(|x| x[k % m])
+                .polynomial(wn_pn);
+            wn_pn *= wn;
+        }
+        return true;
+    }
+    false
+}
+
+pub fn fft_radix_n_sqrt_unscaled<T, const N: usize, const I: bool>(array: &mut [T; N]) -> bool
+where
+    T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
+{
+    let p = const {
+        util::closest_prime(1 << ((N.ilog2() + 1) / 2))
+    };
+    if let Some(p) = p && N % p == 0
+    {
+        // Recursive FFT
+
+        let x = partial_fft_unscaled_vec::<_, _, I>(array, p);
+
+        let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/N as f64).unwrap()));
+        let mut wn_pk = T::one();
+        let m = N/p;
+        for k in 0..N
+        {
+            let mut e = T::one();
+            array[k] = x.iter()
+                .map(|x| {
+                    let x = x[k % m];
+                    let y = x*wn_pk;
+                    e *= wn_pk;
+                    y
+                }).sum::<T>();
+            wn_pk *= wn;
+        }
+        return true;
     }
     false
 }
@@ -106,8 +207,9 @@ fn test()
 {
     use crate::ArrayMath;
 
-    let mut x = [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-    let mut y = [Complex::zero(); 5];
+    let mut x = [0.0; 256];
+    x[0] = 1.0;
+    let mut y = [Complex::zero(); 129];
 
     x.real_fft(&mut y);
     x.real_ifft(&y);
