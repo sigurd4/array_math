@@ -1,4 +1,4 @@
-use std::{f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, SubAssign}};
+use std::{f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use array__ops::{ArrayOps, SliceOps};
 use num::{complex::ComplexFloat, traits::Inv, Complex, Float, NumCast, One, Zero};
@@ -301,9 +301,13 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Float,
         Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign;
+
+    fn chebyshev_polynomial(kind: usize, order: usize) -> Option<[T; N]>
+    where
+        T: Copy + Add<Output = T> + Sub<Output = T> + Neg<Output = T> + AddAssign + Mul<Output = T> + One + Zero;
 }
 
-impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
+impl<T, const N: usize> ArrayMath<T, N> for [T; N]
 {
     fn sum(self) -> T
     where
@@ -669,6 +673,58 @@ impl<T, const N: usize> /*const*/ ArrayMath<T, N> for [T; N]
         {
             *y = x.re();
         }
+    }
+    
+    fn chebyshev_polynomial(kind: usize, order: usize) -> Option<[T; N]>
+    where
+        T: Copy + Add<Output = T> + Sub<Output = T> + Neg<Output = T> + AddAssign + Mul<Output = T> + One + Zero
+    {
+        if order > N
+        {
+            return None
+        }
+    
+        let two = T::one() + T::one();
+        let mut t_prev: Self = ArrayOps::fill(|i| if i == 0 {T::one()} else {T::zero()});
+        if order == 0
+        {
+            return Some(t_prev)
+        }
+        
+        let mut kind_c = T::zero();
+        let mut k = 0;
+        while k < kind
+        {
+            kind_c += T::one();
+            k += 1;
+        }
+    
+        let mut t: Self = ArrayOps::fill(|i| if i == 1 {kind_c} else {T::zero()});
+    
+        let mut k = 1;
+        while k < order
+        {
+            let mut t_prev_iter = t_prev.into_iter();
+            let mut t_iter = t.into_iter();
+            let mut first = true;
+            
+            let t_next = ArrayOps::fill(|_| if first
+                {
+                    first = false;
+                    -t_prev_iter.next().unwrap()
+                }
+                else
+                {
+                    two * t_iter.next().unwrap() - t_prev_iter.next().unwrap()
+                }
+            );
+    
+            t_prev = t;
+            t = t_next;
+            k += 1;
+        }
+    
+        Some(t)
     }
 }
 
