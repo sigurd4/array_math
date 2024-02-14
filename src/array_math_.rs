@@ -134,7 +134,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
     /// let h = [1.0, 0.6, 0.3];
     /// 
-    /// let y_fft = x.convolve_fft(&h);
+    /// let y_fft = x.convolve_real_fft(h);
     /// let y_direct = x.convolve_direct(&h);
     /// 
     /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
@@ -160,16 +160,16 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     /// let x = [1.0, 0.0, 1.5, 0.0, 0.0, -1.0];
     /// let h = [1.0, 0.6, 0.3];
     /// 
-    /// let y_fft = x.convolve_fft(&h);
+    /// let y_fft = x.convolve_real_fft(h);
     /// let y_direct = x.convolve_direct(&h);
     /// 
     /// let avg_error = y_fft.comap(y_direct, |y_fft: f64, y_direct: f64| (y_fft - y_direct).abs()).avg();
     /// assert!(avg_error < 1.0e-15);
     /// ```
-    fn convolve_fft<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    fn convolve_real_fft<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
     where
-        T: Float + Copy,
-        Rhs: Float + Copy,
+        T: Float,
+        Rhs: Float,
         Complex<T>: MulAssign + AddAssign + ComplexFloat<Real = T> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
         Complex<Rhs>: MulAssign + AddAssign + ComplexFloat<Real = Rhs>,
         <Complex<T> as Mul<Complex<Rhs>>>::Output: ComplexFloat<Real: Float> + Into<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
@@ -178,6 +178,15 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         [(); (N + M - 1).next_power_of_two() - M]:,
         [(); (N + M - 1).next_power_of_two() - (N + M - 1)]:,
         [(); (N + M - 1).next_power_of_two()/2 + 1]:;
+        
+    fn convolve_fft<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum + Mul<Rhs>,
+        Rhs: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<Rhs::Real>> + Sum,
+        <T as Mul<Rhs>>::Output: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<<<T as Mul<Rhs>>::Output as ComplexFloat>::Real>> + Sum,
+        [(); (N + M - 1).next_power_of_two() - N]:,
+        [(); (N + M - 1).next_power_of_two() - M]:,
+        [(); (N + M - 1).next_power_of_two() - (N + M - 1)]:;
 
     fn recip_all(self) -> [<T as Inv>::Output; N]
     where
@@ -526,10 +535,10 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         })
     }
     
-    fn convolve_fft<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
+    fn convolve_real_fft<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> [<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real; N + M - 1]
     where
-        T: Float + Copy,
-        Rhs: Float + Copy,
+        T: Float,
+        Rhs: Float,
         Complex<T>: MulAssign + AddAssign + ComplexFloat<Real = T> + Mul<Complex<Rhs>, Output: ComplexFloat<Real: Float>>,
         Complex<Rhs>: MulAssign + AddAssign + ComplexFloat<Real = Rhs>,
         <Complex<T> as Mul<Complex<Rhs>>>::Output: ComplexFloat<Real: Float> + Into<Complex<<<Complex<T> as Mul<Complex<Rhs>>>::Output as ComplexFloat>::Real>>,
@@ -550,6 +559,26 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         let y_f = x_f.comap(h_f, |x_f, h_f| (x_f*h_f).into());
         let mut y = [Zero::zero(); (N + M - 1).next_power_of_two()];
         y.real_ifft(&y_f);
+
+        y.truncate()
+    }
+    
+    fn convolve_fft<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum + Mul<Rhs>,
+        Rhs: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<Rhs::Real>> + Sum,
+        <T as Mul<Rhs>>::Output: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<<<T as Mul<Rhs>>::Output as ComplexFloat>::Real>> + Sum,
+        [(); (N + M - 1).next_power_of_two() - N]:,
+        [(); (N + M - 1).next_power_of_two() - M]:,
+        [(); (N + M - 1).next_power_of_two() - (N + M - 1)]:
+    {
+        let mut x: [T; (N + M - 1).next_power_of_two()] = self.resize(|_| T::zero());
+        let mut h: [Rhs; (N + M - 1).next_power_of_two()] = rhs.resize(|_| Rhs::zero());
+        x.fft();
+        h.fft();
+
+        let mut y = x.comap(h, |x, h| (x*h).into());
+        y.ifft();
 
         y.truncate()
     }
