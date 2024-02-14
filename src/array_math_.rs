@@ -202,6 +202,16 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: ComplexFloat;
 
+    fn dtft(&self, omega: T::Real) -> T
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
+        
+    fn real_dtft(&self, omega: T) -> Complex<T>
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign;
+
+    #[doc(hidden)]
     fn fft_unscaled<const I: bool>(&mut self)
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
@@ -616,6 +626,37 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             }
             i += 1;
         }
+    }
+    
+    fn dtft(&self, omega: T::Real) -> T
+    where
+        T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
+    {
+        let mut y = T::zero();
+        let z1 = <T as From<_>>::from(Complex::cis(-omega));
+        let mut z = T::one();
+        for &x in self
+        {
+            y += x*z;
+            z *= z1;
+        }
+        y
+    }
+        
+    fn real_dtft(&self, omega: T) -> Complex<T>
+    where
+        T: Float,
+        Complex<T>: ComplexFloat<Real = T> + MulAssign + AddAssign
+    {
+        let mut y = Complex::zero();
+        let z1 = Complex::cis(-omega);
+        let mut z = Complex::one();
+        for &x in self
+        {
+            y += <Complex<_> as From<_>>::from(x)*z;
+            z *= z1;
+        }
+        y
     }
     
     fn fft_unscaled<const I: bool>(&mut self)
