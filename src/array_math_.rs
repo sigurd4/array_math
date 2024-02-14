@@ -1,7 +1,7 @@
 use std::{f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use array__ops::{ArrayOps, SliceOps};
-use num::{complex::ComplexFloat, traits::Inv, Complex, Float, NumCast, One, Zero};
+use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
 use crate::fft;
 
@@ -324,6 +324,55 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn chebyshev_polynomial(kind: usize, order: usize) -> Option<[T; N]>
     where
         T: Copy + Add<Output = T> + Sub<Output = T> + Neg<Output = T> + AddAssign + Mul<Output = T> + One + Zero;
+        
+    fn bartlett_window() -> Self
+    where
+        T: Float;
+
+    fn parzen_window() -> Self
+    where
+        T: Float;
+        
+    fn belch_window() -> Self
+    where
+        T: Float;
+        
+    fn sine_window() -> Self
+    where
+        T: Float + FloatConst;
+    
+    fn power_of_sine_window<A>(alpha: A) -> Self
+    where
+        T: Float + FloatConst + Pow<A, Output = T>,
+        A: Copy;
+        
+    fn hann_window() -> Self
+    where
+        T: Float + FloatConst;
+        
+    fn hamming_window() -> Self
+    where
+        T: Float + FloatConst;
+    
+    fn blackman_window() -> Self
+    where
+        T: Float + FloatConst;
+
+    fn nuttal_window() -> Self
+    where
+        T: Float + FloatConst;
+
+    fn blackman_nuttal_window() -> Self
+    where
+        T: Float + FloatConst;
+
+    fn blackman_harris_window() -> Self
+    where
+        T: Float + FloatConst;
+
+    fn flat_top_window() -> Self
+    where
+        T: Float + FloatConst;
 }
 
 impl<T, const N: usize> ArrayMath<T, N> for [T; N]
@@ -755,7 +804,8 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
     
         let two = T::one() + T::one();
-        let mut t_prev: Self = ArrayOps::fill(|i| if i == 0 {T::one()} else {T::zero()});
+        let mut t_prev: Self = [T::zero(); _];
+        t_prev[0] = T::one();
         if order == 0
         {
             return Some(t_prev)
@@ -795,6 +845,162 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
     
         Some(t)
+    }
+    
+    fn bartlett_window() -> Self
+    where
+        T: Float
+    {
+        let ld2 = T::from(N - 1).unwrap()/T::from(2.0).unwrap();
+        ArrayOps::fill(|n| T::one() - (T::from(n).unwrap()/ld2 - T::one()).abs())
+    }
+
+    fn parzen_window() -> Self
+    where
+        T: Float
+    {
+        let ld2 = T::from(N).unwrap()/T::from(2.0).unwrap();
+        let ld4 =ld2/T::from(2.0).unwrap();
+        ArrayOps::fill(|n| {
+            let m = T::from(n).unwrap() - T::from(N - 1).unwrap()/T::from(2.0).unwrap();
+            let z1 = T::one() - m.abs()/ld2;
+            if m.abs() <= ld4
+            {
+                let z2 = m/ld2;
+                T::one() - T::from(6.0).unwrap()*z2*z2*z1
+            }
+            else
+            {
+                T::from(2.0).unwrap()*z1*z1*z1
+            }
+        })
+    }
+    
+    fn belch_window() -> Self
+    where
+        T: Float
+    {
+        let ld2 = T::from(N - 1).unwrap()/T::from(2.0).unwrap();
+        ArrayOps::fill(|n| {
+            let z = T::from(n).unwrap()/ld2 - T::one();
+            T::one() - z*z
+        })
+    }
+        
+    fn sine_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        ArrayOps::fill(|n| (T::PI()*T::from(n).unwrap()/T::from(N - 1).unwrap()).sin())
+    }
+    
+    fn power_of_sine_window<A>(alpha: A) -> Self
+    where
+        T: Float + FloatConst + Pow<A, Output = T>,
+        A: Copy
+    {
+        ArrayOps::fill(|n| (T::PI()*T::from(n).unwrap()/T::from(N - 1).unwrap()).sin().pow(alpha))
+    }
+
+    fn hann_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        ArrayOps::fill(|n| {
+            let z = (T::PI()*T::from(n).unwrap()/T::from(N - 1).unwrap()).sin();
+            z*z
+        })
+    }
+
+    fn hamming_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(25.0/46.0).unwrap();
+        ArrayOps::fill(|n| {
+            let z = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - (T::one() - a0)*z
+        })
+    }
+    
+    fn blackman_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(7938.0/18608.0).unwrap();
+        let a1 = T::from(9240.0/18608.0).unwrap();
+        let a2 = T::from(1430.0/18608.0).unwrap();
+        ArrayOps::fill(|n| {
+            let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - a1*z1 + a2*z2
+        })
+    }
+    
+    fn nuttal_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(0.355768).unwrap();
+        let a1 = T::from(0.487396).unwrap();
+        let a2 = T::from(0.144232).unwrap();
+        let a3 = T::from(0.012604).unwrap();
+        ArrayOps::fill(|n| {
+            let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - a1*z1 + a2*z2 - a3*z3
+        })
+    }
+    
+    fn blackman_nuttal_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(0.3635819).unwrap();
+        let a1 = T::from(0.4891775).unwrap();
+        let a2 = T::from(0.1365995).unwrap();
+        let a3 = T::from(0.0106411).unwrap();
+        ArrayOps::fill(|n| {
+            let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - a1*z1 + a2*z2 - a3*z3
+        })
+    }
+    
+    fn blackman_harris_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(0.35875).unwrap();
+        let a1 = T::from(0.48829).unwrap();
+        let a2 = T::from(0.14128).unwrap();
+        let a3 = T::from(0.01168).unwrap();
+        ArrayOps::fill(|n| {
+            let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - a1*z1 + a2*z2 - a3*z3
+        })
+    }
+    
+    fn flat_top_window() -> Self
+    where
+        T: Float + FloatConst
+    {
+        let a0 = T::from(0.21557895).unwrap();
+        let a1 = T::from(0.41663158).unwrap();
+        let a2 = T::from(0.277263158).unwrap();
+        let a3 = T::from(0.083578947).unwrap();
+        let a4 = T::from(0.006947368).unwrap();
+        ArrayOps::fill(|n| {
+            let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z4 = (T::TAU()*T::from(n*8).unwrap()/T::from(N - 1).unwrap()).cos();
+            a0 - a1*z1 + a2*z2 - a3*z3 + a4*z4
+        })
     }
 }
 
