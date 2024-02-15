@@ -66,6 +66,29 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         u64: Into<T>,
         T: Div + AddAssign + Zero;
 
+    fn geometric_mean(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u8: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u8::MAX as usize - N]:;
+
+    fn geometric_mean16(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u16: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u16::MAX as usize - N]:;
+        
+    fn geometric_mean32(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u32: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u32::MAX as usize - N]:;
+        
+    fn geometric_mean64(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u64: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv;
+
     fn mul_dot<Rhs>(self, rhs: [Rhs; N]) -> <T as Mul<Rhs>>::Output
     where
         T: Mul<Rhs, Output: AddAssign + Zero>;
@@ -487,6 +510,41 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         T: Div + AddAssign + Zero
     {
         self.sum()/(N as u64).into()
+    }
+    
+    fn geometric_mean(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u8: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u8::MAX as usize - N]:
+    {
+        self.product().pow((N as u8).into().inv())
+    }
+
+    fn geometric_mean16(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u16: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u16::MAX as usize - N]:
+    {
+        self.product().pow((N as u16).into().inv())
+    }
+        
+    fn geometric_mean32(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u32: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
+        [(); u32::MAX as usize - N]:
+    {
+        self.product().pow((N as u32).into().inv())
+    }
+        
+    fn geometric_mean64(self) -> <T as Pow<<T as Inv>::Output>>::Output
+    where
+        u64: Into<T>,
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv
+    {
+        self.product().pow((N as u64).into().inv())
     }
 
     fn mul_dot<Rhs>(self, rhs: [Rhs; N]) -> <T as Mul<Rhs>>::Output
