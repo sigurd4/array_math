@@ -40,7 +40,7 @@ pub fn fft_radix2_unscaled<T, const N: usize, const I: bool>(array: &mut [T; N])
 where
     T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
 {
-    if N.is_power_of_two()
+    if false && N.is_power_of_two()
     {
         // In-place FFT
 
