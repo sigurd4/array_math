@@ -1,2 +1,3 @@
 # array_math
- Compile-time math operations on arrays
+
+A selection of useful math operations on arrays
