@@ -1,6 +1,6 @@
 [package]
 name = "array_math"
-version = "0.2.19"
+version = "0.2.20"
 edition = "2021"
 license = "MIT"
 description = "A selection of useful math operations on arrays"
@@ -11,7 +11,7 @@ repository = "https://github.com/sigurd4/array_math"
 [dependencies]
 moddef = "0.2.2"
 num = "0.4.1"
-array__ops = {version = "0.1.11", features = ["std"]}
+array__ops = {version = "0.1.12", features = ["std"]}
 slice_math = "0.1.7"
 #slice_math = {path = "../slice_math"}
 #float_approx_math = "0.1.9"
