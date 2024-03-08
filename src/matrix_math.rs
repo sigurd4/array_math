@@ -11,6 +11,10 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     fn identity_matrix() -> Self
     where
         T: Zero + One;
+        
+    fn eye_matrix(k: isize) -> Self
+    where
+        T: Zero + One;
 
     /// Performs two-dimensional direct convolution on two matrices.
     /// 
@@ -196,6 +200,27 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         T: Zero + One
     {
         ArrayOps::fill(|m| ArrayOps::fill(|n| if m == n
+        {
+            One::one()
+        }
+        else
+        {
+            Zero::zero()
+        }))
+    }
+
+    fn eye_matrix(k: isize) -> Self
+    where
+        T: Zero + One
+    {
+        ArrayOps::fill(|m| ArrayOps::fill(|n| if if k >= 0
+        {
+            n == k as usize + m
+        }
+        else
+        {
+            n + (-k) as usize == m
+        }
         {
             One::one()
         }
@@ -656,5 +681,19 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         }
     
         true
+    }
+}
+
+#[cfg(test)]
+mod test
+{
+    use crate::MatrixMath;
+
+    #[test]
+    fn test()
+    {
+        let eye = <[[f64; 3]; 3]>::eye_matrix(0);
+
+        println!("{:?}", eye);
     }
 }
