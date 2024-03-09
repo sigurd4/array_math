@@ -11,7 +11,7 @@ repository = "https://github.com/sigurd4/array_math"
 [dependencies]
 moddef = "0.2.2"
 num = "0.4.1"
-array__ops = {version = "0.1.13", features = ["std"]}
+array__ops = {version = "0.1.14", features = ["std"]}
 slice_math = "0.1.8"
 #slice_math = {path = "../slice_math"}
 #float_approx_math = "0.1.9"

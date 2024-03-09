@@ -1,9 +1,10 @@
 use std::{f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use array__ops::{ArrayOps, SliceOps};
+use array__ops::{max_len, ArrayOps, SliceOps};
+use slice_math::SliceMath;
 use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
-use crate::fft;
+use crate::{fft, MatrixMath, SquareMatrixMath};
 
 #[const_trait]
 pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
@@ -125,6 +126,26 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: AddAssign + MulAssign<Rhs> + Zero,
         Rhs: Copy;
+    fn rpolynomial<Rhs>(self, rhs: Rhs) -> T
+    where
+        T: AddAssign + MulAssign<Rhs> + Zero,
+        Rhs: Copy;
+    fn companion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
+    where
+        T: Copy + Neg,
+        <T as Neg>::Output: One + Zero + DivAssign<T>;
+    fn rcompanion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
+    where
+        T: Copy + Neg,
+        <T as Neg>::Output: One + Zero + DivAssign<T>;
+    fn polynomial_roots(&self) -> Option<[T; N - 1]>
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        [(); N - 1]:;
+    fn rpolynomial_roots(&self) -> Option<[T; N - 1]>
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        [(); N - 1]:;
 
     /// Performs direct convolution.
     /// This is equivalent to a polynomial multiplication.
@@ -636,6 +657,71 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         core::mem::forget(self);
         y
     }
+    fn rpolynomial<Rhs>(self, rhs: Rhs) -> T
+    where
+        T: AddAssign + MulAssign<Rhs> + Zero,
+        Rhs: Copy
+    {
+        let ptr = self.as_ptr();
+        let mut y = T::zero();
+        let mut i = 0;
+        while i < N
+        {
+            y *= rhs;
+            y += unsafe {
+                ptr.add(i).read()
+            };
+            i += 1;
+        }
+        core::mem::forget(self);
+        y
+    }
+    fn companion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
+    where
+        T: Copy + Neg,
+        <T as Neg>::Output: One + Zero + DivAssign<T>
+    {
+        let mut c = <[[<T as Neg>::Output; N - 1]; N - 1]>::eye_matrix(-1);
+        let mut i = 0;
+        while i < N - 1
+        {
+            c[i][N - 2] = -self[i];
+            c[i][N - 2] /= self[N - 1];
+            i += 1;
+        }
+        c
+    }
+    fn rcompanion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
+    where
+        T: Copy + Neg,
+        <T as Neg>::Output: One + Zero + DivAssign<T>
+    {
+        let mut c = <[[<T as Neg>::Output; N - 1]; N - 1]>::eye_matrix(-1);
+        let mut i = N - 1;
+        while i > 0
+        {
+            c[N - 1 - i][N - 2] = -self[i];
+            c[N - 1 - i][N - 2] /= self[0];
+            i -= 1;
+        }
+        c
+    }
+    fn polynomial_roots(&self) -> Option<[T; N - 1]>
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        [(); N - 1]:
+    {
+        let c = self.companion_matrix();
+        c.eigenvalues()
+    }
+    fn rpolynomial_roots(&self) -> Option<[T; N - 1]>
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        [(); N - 1]:
+    {
+        let c = self.rcompanion_matrix();
+        c.eigenvalues()
+    }
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
     where
@@ -1065,15 +1151,9 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
 #[test]
 fn test()
 {
-    let x = [1.0, 1.0, 0.0, 0.0, 0.0];
-
-    let mut z = [Complex::zero(); _];
-    x.real_fft(&mut z);
+    let x = [1.0f64, 4.0, -7.0];
     
-    let mut y = [0.0; _];
-    y.real_ifft(&z);
+    let a = x.rpolynomial_roots();
 
-    //assert_eq!(x, y);
-
-    println!("{:?}", y)
+    println!("{:?}", a)
 }
