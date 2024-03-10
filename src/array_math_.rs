@@ -1,4 +1,4 @@
-use std::{f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
+use std::{any::Any, f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use array__ops::{max_len, ArrayOps, SliceOps};
 use slice_math::SliceMath;
@@ -97,30 +97,52 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn magnitude_squared(self) -> <T as Mul<T>>::Output
     where
         T: Mul<T, Output: AddAssign + Zero> + Copy;
+    fn magnitude_squared_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy;
 
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
         T: Mul<T, Output: AddAssign + Zero + Float> + Copy;
+    fn magnitude_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy;
     
     fn magnitude_inv(self) -> <T as Mul<T>>::Output
     where
         T: Mul<T, Output: AddAssign + Zero + Float> + Copy;
+    fn magnitude_inv_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy;
 
     fn normalize(self) -> [<T as Mul<<T as Mul<T>>::Output>>::Output; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Copy> + Mul<<T as Mul<T>>::Output> + Copy;
+    fn normalize_complex(self) -> [<T as Mul<T::Real>>::Output; N]
+    where
+        T: ComplexFloat + AddAssign + Mul<T::Real> + Copy;
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
-        
+    fn normalize_complex_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<T::Real as Mul<Rhs>>::Output>>::Output; N]
+    where
+        T: ComplexFloat<Real: Mul<Rhs, Output: Copy>> + AddAssign + Mul<<T::Real as Mul<Rhs>>::Output>;
+
     fn normalize_assign(&mut self)
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Copy> + MulAssign<<T as Mul<T>>::Output> + Copy;
+    fn normalize_assign_complex(&mut self)
+    where
+        T: ComplexFloat + AddAssign + MulAssign<T::Real> + Copy;
 
     fn normalize_assign_to<Rhs>(&mut self, magnitude: Rhs)
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + MulAssign<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy;
+    fn normalize_assign_complex_to<Rhs>(&mut self, magnitude: Rhs)
+    where
+        T: ComplexFloat + AddAssign + MulAssign<<T::Real as Mul<Rhs>>::Output>,
+        T::Real: Mul<Rhs, Output: Copy>;
 
     fn polynomial<Rhs>(self, rhs: Rhs) -> T
     where
@@ -138,13 +160,13 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Copy + Neg,
         <T as Neg>::Output: One + Zero + DivAssign<T>;
-    fn polynomial_roots(&self) -> Option<[T; N - 1]>
+    fn polynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:;
-    fn rpolynomial_roots(&self) -> Option<[T; N - 1]>
+    fn rpolynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:;
 
     /// Performs direct convolution.
@@ -590,7 +612,13 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     {
         self.mul_dot(self)
     }
-    
+    fn magnitude_squared_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy
+    {
+        self.conj_all().mul_dot(self).abs()
+    }
+
     fn magnitude(self) -> <T as Mul<T>>::Output
     where
         T: Mul<T, Output: AddAssign + Zero + Float> + Copy
@@ -598,6 +626,12 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         const N: usize = 3;
         self.magnitude_squared()
             .sqrt()
+    }
+    fn magnitude_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy
+    {
+        Float::sqrt(self.magnitude_squared_complex())
     }
     
     fn magnitude_inv(self) -> <T as Mul<T>>::Output
@@ -609,12 +643,24 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             .sqrt()
             .recip()
     }
+    fn magnitude_inv_complex(self) -> T::Real
+    where
+        T: ComplexFloat + AddAssign + Copy
+    {
+        Float::recip(Float::sqrt(self.magnitude_squared_complex()))
+    }
 
     fn normalize(self) -> [<T as Mul<<T as Mul<T>>::Output>>::Output; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Copy> + Mul<<T as Mul<T>>::Output> + Copy
     {
         self.mul_all(self.magnitude_inv())
+    }
+    fn normalize_complex(self) -> [<T as Mul<T::Real>>::Output; N]
+    where
+        T: ComplexFloat + AddAssign + Mul<T::Real> + Copy
+    {
+        self.mul_all(self.magnitude_inv_complex())
     }
 
     fn normalize_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<<T as Mul<T>>::Output as Mul<Rhs>>::Output>>::Output; N]
@@ -623,6 +669,13 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     {
         self.mul_all(self.magnitude_inv()*magnitude)
     }
+    fn normalize_complex_to<Rhs>(self, magnitude: Rhs) -> [<T as Mul<<T::Real as Mul<Rhs>>::Output>>::Output; N]
+    where
+        T: ComplexFloat + AddAssign + Mul<<T::Real as Mul<Rhs>>::Output>,
+        T::Real: Mul<Rhs, Output: Copy>
+    {
+        self.mul_all(<T::Real as Mul<Rhs>>::mul(self.magnitude_inv_complex(), magnitude))
+    }
     
     fn normalize_assign(&mut self)
     where
@@ -630,12 +683,25 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     {
         self.mul_assign_all(self.magnitude_inv())
     }
+    fn normalize_assign_complex(&mut self)
+    where
+        T: ComplexFloat + AddAssign + MulAssign<T::Real> + Copy
+    {
+        self.mul_assign_all(self.magnitude_inv_complex())
+    }
 
     fn normalize_assign_to<Rhs>(&mut self, magnitude: Rhs)
     where
         T: Mul<T, Output: AddAssign + Zero + Float + Mul<Rhs, Output: Copy>> + MulAssign<<<T as Mul<T>>::Output as Mul<Rhs>>::Output> + Copy
     {
         self.mul_assign_all(self.magnitude_inv()*magnitude)
+    }
+    fn normalize_assign_complex_to<Rhs>(&mut self, magnitude: Rhs)
+    where
+        T: ComplexFloat + AddAssign + MulAssign<<T::Real as Mul<Rhs>>::Output>,
+        T::Real: Mul<Rhs, Output: Copy>
+    {
+        self.mul_assign_all(<T::Real as Mul<Rhs>>::mul(self.magnitude_inv_complex(), magnitude))
     }
     
     fn polynomial<Rhs>(self, rhs: Rhs) -> T
@@ -706,17 +772,17 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
         c
     }
-    fn polynomial_roots(&self) -> Option<[T; N - 1]>
+    fn polynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:
     {
         let c = self.companion_matrix();
         c.eigenvalues()
     }
-    fn rpolynomial_roots(&self) -> Option<[T; N - 1]>
+    fn rpolynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:
     {
         let c = self.rcompanion_matrix();
@@ -1151,9 +1217,13 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
 #[test]
 fn test()
 {
-    let x = [1.0f64, 4.0, -7.0];
+    let x = [1.0f64, 2.0, 1.0];
+
+    let x = x.map(|x| Complex::new(x, 0.0));
     
     let a = x.rpolynomial_roots();
 
-    println!("{:?}", a)
+    let [a1, a2] = a;
+
+    println!("{:?}", (a1 + a2)/2.0)
 }

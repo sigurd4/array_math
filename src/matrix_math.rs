@@ -190,10 +190,13 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     fn lup_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M])
     where
         T: Neg<Output = T> + Zero + One + PartialOrd + Mul<Output = T> + AddAssign + Copy + Sub<Output = T> + Div<Output = T>;
+    fn lup_matrix_complex(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M])
+    where
+        T: ComplexFloat + AddAssign + Copy;
             
     fn lu_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)])
     where
-        T: Zero + One + PartialOrd + Mul<Output = T> + Sub<Output = T> + Div<Output = T> + AddAssign + Copy;
+        T: Zero + One + Mul<Output = T> + Sub<Output = T> + Div<Output = T> + AddAssign + Copy;
 
     fn det_matrix(&self) -> T
     where
@@ -632,10 +635,21 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
     
         (l, u, p)
     }
+    fn lup_matrix_complex(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M])
+    where
+        T: ComplexFloat + AddAssign + Copy
+    {
+        let p = self.rpivot_matrix_complex();
+        let pa = p.mul_matrix(self);
+    
+        let (l, u) = pa.lu_matrix();   
+    
+        (l, u, p)
+    }
             
     fn lu_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)])
     where
-        T: Zero + One + PartialOrd + Mul<Output = T> + Sub<Output = T> + Div<Output = T> + AddAssign + Copy
+        T: Zero + One + Mul<Output = T> + Sub<Output = T> + Div<Output = T> + AddAssign + Copy
     {
         let mut l = [[Zero::zero(); _]; _];
         let mut u = [[Zero::zero(); _]; _];
@@ -646,7 +660,6 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
             {
                 l[n][n] = One::one();
             }
-    
             for m in 0..(n + 1).min(M)
             {
                 let mut s = T::zero();
@@ -737,6 +750,10 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
                 x_norm_sqr += x.conj()*x;
             }
             let x_norm = x_norm_sqr.sqrt();
+            if x_norm.is_zero()
+            {
+                continue
+            }
             let mut s = -r[j][j];
             if !s.is_zero()
             {
@@ -773,12 +790,25 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
                 }
             }
         }
-
-        /*for k in 1..N
+        
+        for k in 1..N
         {
             for i in k..M
             {
                 r[i][k - 1] = T::zero()
+            }
+        }
+
+        /*let a = q.mul_matrix(&r);
+        for k in 0..N
+        {
+            for i in 0..N
+            {
+                let d = (a[k][i] - self[k][i]).abs();
+                if d > T::from(0.1).unwrap().re()
+                {
+                    panic!("QR not equal")
+                }
             }
         }*/
 
@@ -824,12 +854,13 @@ mod test
     fn test()
     {
         let mut x = [
-            [Complex::new(1.0, 1.0), Complex::new(2.0, 0.0)],
+            [Complex::new(1.0, 3.0), Complex::new(2.0, 0.0)],
             [Complex::new(3.0, 0.0), Complex::new(4.0, 0.0)]
         ];
 
-        let e = x.eigenvalues();
+        let (e, v) = x.eigen();
 
-        println!("{:?}", e);
+        println!("e = {:?}", e);
+        println!("v = {:?}", v);
     }
 }
