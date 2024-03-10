@@ -638,13 +638,13 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
             }
         }
 
-        let w = u.mul_matrix(&v).transpose().map(|w| w.normalize_complex()).transpose();
+        let w = u.mul_matrix(&v).transpose().map(|w| w.normalize_complex());
 
         if TEST
         {
             // Test if AW == Wlambda 
-            let aw = self.mul_matrix(&w);
-            let wlambda = w.mul_matrix(&<[_; N]>::fill(|i| <[_; N]>::fill(|j| if i == j {lambda[i]} else {T::zero()})));
+            let aw = self.mul_matrix(&w.transpose());
+            let wlambda = w.transpose().mul_matrix(&<[_; N]>::fill(|i| <[_; N]>::fill(|j| if i == j {lambda[i]} else {T::zero()})));
             for i in 0..N
             {
                 for j in 0..N
