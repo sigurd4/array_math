@@ -854,8 +854,9 @@ mod test
     fn test()
     {
         let a = [
-            [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0)],
-            [Complex::new(3.0, 1.0), Complex::new(4.0, -4.0)]
+            [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0), Complex::new(3.0, 1.0)],
+            [Complex::new(4.0, -1.0), Complex::new(5.0, 3.0), Complex::new(6.0, -2.0)],
+            [Complex::new(7.0, 2.0), Complex::new(8.0, 1.0), Complex::new(9.0, -3.0)]
         ];
 
         let (e, v) = a.eigen();

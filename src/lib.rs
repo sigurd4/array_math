@@ -9,6 +9,7 @@
 #![feature(array_methods)]
 #![feature(inline_const)]
 #![feature(let_chains)]
+#![feature(more_float_constants)]
 
 #![feature(generic_const_exprs)]
 #![feature(const_closures)]
@@ -42,12 +43,12 @@ mod test
     #[test]
     fn test()
     {
-        type T = u8;
-        let a: [T; 3] = [1, 2, 3];
+        let a = [1.0, 2.0, 1.0];
+            //.map(|a| Complex::new(a, 0.0));
     
-        let avg: T = a.avg();
+        let roots = a.integrate_rpolynomial(0.0);
     
-        println!("{}", avg)
+        println!("{:?}", roots)
     }
     
     #[test]

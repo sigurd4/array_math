@@ -1,4 +1,4 @@
-use std::{any::Any, ops::{Add, AddAssign, Div, DivAssign, Mul, SubAssign}};
+use std::{any::Any, f64::consts::SQRT_3, ops::{Add, AddAssign, Div, DivAssign, Mul, SubAssign}};
 
 use array__ops::{max_len, Array2dOps, ArrayOps};
 use num::{complex::ComplexFloat, Complex, Float, One, Signed, Zero};
@@ -357,62 +357,13 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
     where
         T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static
     {
-        let mut t = self.upper_hessenberg_matrix();
+        let mut t = *self; //self.upper_hessenberg_matrix();
 
         for _ in 0..2048
         {
             let p = t.cpivot_matrix_complex();
             let mut a = t.mul_matrix(&p);
-            let mut gamma = {
-                if N < 3
-                {
-                    a[N - 1][N - 1]
-                }
-                else
-                {
-                    let theta = T::one();
-                    let beta_nm1 = a[N - 1][N - 2];
-                    let beta_nm2 = a[N - 2][N - 3];
-
-                    if (beta_nm2*theta).abs() < beta_nm1.abs()
-                    {
-                        a[N - 1][N - 1]
-                    }
-                    else
-                    {
-                        let a_sub2 = <[_; 2]>::fill(|i| <[_; 2]>::fill(|j| a[N - 2 + i][N - 2 + j]));
-                        let [gamma1, gamma2] = a_sub2.eigenvalues();
-                        
-                        let delta = |gamma: T| {
-                            (gamma - a[N - 2][N - 2])*(gamma - a[N - 1][N - 1]) - t[N - 2][N - 1]
-                        };
-
-                        let sqrt_alpha_nm1_n_beta_nm1 = Float::sqrt(beta_nm1.abs()*a[N - 2][N - 1].abs());
-
-                        let wilk_test = |gamma: T| {
-                            let dgamma_alpha_nm1_nm1 = (gamma - a[N - 2][N - 2]).abs();
-                            let dgamma_alpha_n_n = (gamma - a[N - 1][N - 1]).abs();
-
-                            dgamma_alpha_n_n <= sqrt_alpha_nm1_n_beta_nm1
-                                && sqrt_alpha_nm1_n_beta_nm1 <= dgamma_alpha_nm1_nm1
-                                && delta(gamma).abs() < T::Real::epsilon()
-                        };
-
-                        if wilk_test(gamma1)
-                        {
-                            gamma1
-                        }
-                        else if wilk_test(gamma2)
-                        {
-                            gamma2
-                        }
-                        else
-                        {
-                            T::zero()
-                        }
-                    }
-                }
-            };
+            let mut gamma = qr_shift(&a);
             if let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
             {
                 *gamma = *gamma + Complex::new(T::Real::zero(), T::Real::epsilon())
@@ -486,56 +437,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         {
             let p = t.cpivot_matrix_complex();
             let mut a = t.mul_matrix(&p);
-            let mut gamma = {
-                if N < 3
-                {
-                    a[N - 1][N - 1]
-                }
-                else
-                {
-                    let theta = T::one();
-                    let beta_nm1 = a[N - 1][N - 2];
-                    let beta_nm2 = a[N - 2][N - 3];
-
-                    if (beta_nm2*theta).abs() < beta_nm1.abs()
-                    {
-                        a[N - 1][N - 1]
-                    }
-                    else
-                    {
-                        let a_sub2 = <[_; 2]>::fill(|i| <[_; 2]>::fill(|j| a[N - 2 + i][N - 2 + j]));
-                        let [gamma1, gamma2] = a_sub2.eigenvalues();
-                        
-                        let delta = |gamma: T| {
-                            (gamma - a[N - 2][N - 2])*(gamma - a[N - 1][N - 1]) - t[N - 2][N - 1]
-                        };
-
-                        let sqrt_alpha_nm1_n_beta_nm1 = Float::sqrt(beta_nm1.abs()*a[N - 2][N - 1].abs());
-
-                        let wilk_test = |gamma: T| {
-                            let dgamma_alpha_nm1_nm1 = (gamma - a[N - 2][N - 2]).abs();
-                            let dgamma_alpha_n_n = (gamma - a[N - 1][N - 1]).abs();
-
-                            dgamma_alpha_n_n <= sqrt_alpha_nm1_n_beta_nm1
-                                && sqrt_alpha_nm1_n_beta_nm1 <= dgamma_alpha_nm1_nm1
-                                && delta(gamma).abs() < T::Real::epsilon()
-                        };
-
-                        if wilk_test(gamma1)
-                        {
-                            gamma1
-                        }
-                        else if wilk_test(gamma2)
-                        {
-                            gamma2
-                        }
-                        else
-                        {
-                            T::zero()
-                        }
-                    }
-                }
-            };
+            let mut gamma = qr_shift(&a);
             if let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
             {
                 *gamma = *gamma + Complex::new(T::Real::zero(), T::Real::epsilon())
@@ -673,5 +575,72 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         }
 
         (lambda, w)
+    }
+}
+
+fn qr_shift<T, const N: usize>(a: &[[T; N]; N]) -> T
+where
+    T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static
+{
+    if N < 3
+    {
+        a[N - 1][N - 1]
+    }
+    else
+    {
+        let beta_nm1 = a[N - 1][N - 2];
+        let beta_nm2 = a[N - 2][N - 3];
+        let beta_nm1_abs = beta_nm1.abs();
+        let beta_nm2_abs = beta_nm2.abs();
+
+        let two = T::Real::one() + T::Real::one();
+        let phi = Float::recip(Float::sqrt(two - beta_nm1_abs*beta_nm1_abs));
+        let psi = if beta_nm2_abs > T::from(SQRT_3/2.0).unwrap().re()
+        {
+            beta_nm2_abs
+        }
+        else
+        {
+            Float::sqrt(T::Real::one() + Float::recip(Float::sqrt(T::Real::one() - beta_nm2_abs*beta_nm2_abs)))/two
+        };
+        let theta = phi.min(psi);
+
+        if (beta_nm2*theta).abs() < beta_nm1.abs()
+        {
+            a[N - 1][N - 1]
+        }
+        else
+        {
+            let a_sub2 = <[_; 2]>::fill(|i| <[_; 2]>::fill(|j| a[N - 2 + i][N - 2 + j]));
+            let [gamma1, gamma2] = a_sub2.eigenvalues();
+            
+            let delta = |gamma: T| {
+                (gamma - a[N - 2][N - 2])*(gamma - a[N - 1][N - 1]) - a[N - 2][N - 1]
+            };
+
+            let sqrt_alpha_nm1_n_beta_nm1 = Float::sqrt(beta_nm1.abs()*a[N - 2][N - 1].abs());
+
+            let wilk_test = |gamma: T| {
+                let dgamma_alpha_nm1_nm1 = (gamma - a[N - 2][N - 2]).abs();
+                let dgamma_alpha_n_n = (gamma - a[N - 1][N - 1]).abs();
+
+                dgamma_alpha_n_n <= sqrt_alpha_nm1_n_beta_nm1
+                    && sqrt_alpha_nm1_n_beta_nm1 <= dgamma_alpha_nm1_nm1
+                    && delta(gamma).abs() < T::Real::epsilon()
+            };
+
+            if wilk_test(gamma1)
+            {
+                gamma1
+            }
+            else if wilk_test(gamma2)
+            {
+                gamma2
+            }
+            else
+            {
+                T::zero()
+            }
+        }
     }
 }

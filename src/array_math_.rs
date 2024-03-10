@@ -5,6 +5,8 @@ use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float,
 
 use crate::{fft, MatrixMath, SquareMatrixMath};
 
+const NEWTON_POLYNOMIAL_ROOTS: usize = 16;
+
 #[const_trait]
 pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 {
@@ -151,21 +153,36 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: AddAssign + MulAssign<Rhs> + Zero,
         Rhs: Copy;
+        
+    fn derivate_polynomial(self) -> [<T as Mul>::Output; N - 1]
+    where
+        T: NumCast + Zero + Mul;
+    fn derivate_rpolynomial(self) -> [<T as Mul>::Output; N - 1]
+    where
+        T: NumCast + Zero + Mul;
+        
+    fn integrate_polynomial(self, c: <T as Div>::Output) -> [<T as Div>::Output; N + 1]
+    where
+        T: NumCast + Zero + Div;
+    fn integrate_rpolynomial(self, c: <T as Div>::Output) -> [<T as Div>::Output; N + 1]
+    where
+        T: NumCast + Zero + Div;
+
     fn companion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
     where
-        T: Copy + Neg,
+        T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>;
     fn rcompanion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
     where
-        T: Copy + Neg,
+        T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>;
     fn polynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:;
     fn rpolynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:;
 
     /// Performs direct convolution.
@@ -741,51 +758,278 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         core::mem::forget(self);
         y
     }
+
+    fn derivate_polynomial(self) -> [<T as Mul>::Output; N - 1]
+    where
+        T: NumCast + Zero + Mul
+    {
+        let ptr = self.as_ptr();
+        let y = ArrayOps::fill(|i| {
+            let b = unsafe {
+                ptr.add(i + 1).read()
+            };
+            b*T::from(i + 1).unwrap()
+        });
+        core::mem::forget(self);
+        y
+    }
+    fn derivate_rpolynomial(self) -> [<T as Mul>::Output; N - 1]
+    where
+        T: NumCast + Zero + Mul
+    {
+        let ptr = self.as_ptr();
+        let y = ArrayOps::fill(|i| {
+            let b = unsafe {
+                ptr.add(i).read()
+            };
+            b*T::from(N - i - 1).unwrap()
+        });
+        core::mem::forget(self);
+        y
+    }
+    
+    fn integrate_polynomial(self, c: <T as Div>::Output) -> [<T as Div>::Output; N + 1]
+    where
+        T: NumCast + Zero + Div
+    {
+        let c_ptr = &c as *const <T as Div>::Output;
+        let ptr = self.as_ptr();
+        let y = ArrayOps::fill(|i| {
+            if i == 0
+            {
+                unsafe {
+                    c_ptr.read()
+                }
+            }
+            else
+            {
+                let b = unsafe {
+                    ptr.add(i - 1).read()
+                };
+                b/T::from(i).unwrap()
+            }
+        });
+        core::mem::forget(self);
+        core::mem::forget(c);
+        y
+    }
+    fn integrate_rpolynomial(self, c: <T as Div>::Output) -> [<T as Div>::Output; N + 1]
+    where
+        T: NumCast + Zero + Div
+    {
+        let c_ptr = &c as *const <T as Div>::Output;
+        let ptr = self.as_ptr();
+        let y = ArrayOps::fill(|i| {
+            if i == N
+            {
+                unsafe {
+                    c_ptr.read()
+                }
+            }
+            else
+            {
+                let b = unsafe {
+                    ptr.add(i).read()
+                };
+                b/T::from(N - i).unwrap()
+            }
+        });
+        core::mem::forget(self);
+        core::mem::forget(c);
+        y
+    }
+
     fn companion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
     where
-        T: Copy + Neg,
+        T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>
     {
-        let mut c = <[[<T as Neg>::Output; N - 1]; N - 1]>::eye_matrix(-1);
-        let mut i = 0;
-        while i < N - 1
+        let mut c = <[[_; N - 1]; N - 1]>::fill(|_| ArrayOps::fill(|_| Zero::zero()));
+        let mut n = N - 1;
+        while n > 0
         {
-            c[i][N - 2] = -self[i];
-            c[i][N - 2] /= self[N - 1];
+            if !self[n].is_zero()
+            {
+                break
+            }
+            n -= 1;
+        }
+        let mut i = 0;
+        while i < n
+        {
+            if i > 0
+            {
+                c[i][i - 1] = One::one();
+            }
+            c[i][n - 1] = -self[i];
+            c[i][n - 1] /= self[n];
             i += 1;
         }
         c
     }
     fn rcompanion_matrix(&self) -> [[<T as Neg>::Output; N - 1]; N - 1]
     where
-        T: Copy + Neg,
+        T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>
     {
-        let mut c = <[[<T as Neg>::Output; N - 1]; N - 1]>::eye_matrix(-1);
-        let mut i = N - 1;
+        let mut c = <[[_; N - 1]; N - 1]>::fill(|_| ArrayOps::fill(|_| Zero::zero()));
+        let mut n = N - 1;
+        while n > 0
+        {
+            if !self[N - 1 - n].is_zero()
+            {
+                break
+            }
+            n -= 1;
+        }
+        let mut i = n;
         while i > 0
         {
-            c[N - 1 - i][N - 2] = -self[i];
-            c[N - 1 - i][N - 2] /= self[0];
+            c[n - i][n - 1] = -self[i];
+            c[n - i][n - 1] /= self[N - 1 - n];
             i -= 1;
+            if i > 0
+            {
+                c[i][i - 1] = One::one();
+            }
         }
         c
     }
     fn polynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:
     {
+        let scale = self.magnitude_complex();
         let c = self.companion_matrix();
-        c.eigenvalues()
+        let mut roots = c.eigenvalues();
+        // Use newtons method
+        let dp = self.derivate_polynomial();
+        for k in 0..N - 1
+        {
+            const NEWTON: usize = NEWTON_POLYNOMIAL_ROOTS;
+
+            for _ in 0..NEWTON
+            {
+                let df = self.polynomial(roots[k]);
+                if df.is_zero()
+                {
+                    break
+                }
+                roots[k] -= df/dp.polynomial(roots[k])
+            }
+        }
+        // Eliminate non-converging roots
+        for k in 0..N - 1
+        {
+            if self.rpolynomial(roots[k]).abs() >= scale*T::Real::epsilon()
+            {
+                roots[k] = T::from(T::Real::nan()).unwrap()
+            }
+        }
+        let mut excess = 0;
+        while excess < N
+        {
+            if !self[N - 1 - excess].is_zero()
+            {
+                break
+            }
+            excess += 1;
+        }
+        // Even out duplicate roots
+        for k in 0..N - 1
+        {
+            if !roots[k].is_nan()
+            {
+                let mut j = 1;
+                for i in 0..N - 1
+                {
+                    if excess > 0 && i != k && !roots[i].is_nan()
+                    {
+                        if (roots[i] - roots[k]).abs() < scale*T::Real::epsilon()
+                        {
+                            roots[k] += roots[i];
+                            j += 1;
+                            roots[i] = T::from(T::Real::nan()).unwrap();
+                            excess -= 1;
+                        }
+                    }
+                }
+                if j > 1
+                {
+                    roots[k] /= T::from(j).unwrap();
+                }
+            }
+        }
+        roots
     }
     fn rpolynomial_roots(&self) -> [T; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
         [(); N - 1]:
     {
+        let scale = self.magnitude_complex();
         let c = self.rcompanion_matrix();
-        c.eigenvalues()
+        let mut roots = c.eigenvalues();
+        // Use newtons method
+        let dp = self.derivate_rpolynomial();
+        for k in 0..N - 1
+        {
+            const NEWTON: usize = NEWTON_POLYNOMIAL_ROOTS;
+
+            for _ in 0..NEWTON
+            {
+                let df = self.rpolynomial(roots[k]);
+                if df.is_zero()
+                {
+                    break
+                }
+                roots[k] -= df/dp.rpolynomial(roots[k])
+            }
+        }
+        // Eliminate non-converging roots
+        for k in 0..N - 1
+        {
+            if self.rpolynomial(roots[k]).abs() >= scale*T::Real::epsilon()
+            {
+                roots[k] = T::from(T::Real::nan()).unwrap()
+            }
+        }
+        let mut excess = 0;
+        while excess < N
+        {
+            if !self[excess].is_zero()
+            {
+                break
+            }
+            excess += 1;
+        }
+        // Even out duplicate roots
+        for k in 0..N - 1
+        {
+            if !roots[k].is_nan()
+            {
+                let mut j = 1;
+                for i in 0..N - 1
+                {
+                    if excess > 0 && i != k && !roots[i].is_nan()
+                    {
+                        if (roots[i] - roots[k]).abs() < scale*T::Real::epsilon()
+                        {
+                            roots[k] += roots[i];
+                            j += 1;
+                            roots[i] = T::from(T::Real::nan()).unwrap();
+                            excess -= 1;
+                        }
+                    }
+                }
+                if j > 1
+                {
+                    roots[k] /= T::from(j).unwrap();
+                }
+            }
+        }
+        roots
     }
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
@@ -1220,9 +1464,7 @@ fn test()
 
     let x = x.map(|x| Complex::new(x, 0.0));
     
-    let a = x.rpolynomial_roots();
+    let a = x.polynomial_roots();
 
-    let [a1, a2] = a;
-
-    println!("{:?}", (a1 + a2)/2.0)
+    println!("{:?}", a)
 }
