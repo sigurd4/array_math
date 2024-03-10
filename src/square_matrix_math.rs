@@ -39,6 +39,9 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
     /// # Examples
     /// 
     /// ```rust
+    /// use num::Complex;
+    /// use array_math::{SquareMatrixMath, MatrixMath, ArrayOps};
+    /// 
     /// let a = [
     ///     [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0)],
     ///     [Complex::new(3.0, 1.0), Complex::new(4.0, -4.0)]
