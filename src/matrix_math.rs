@@ -1,9 +1,9 @@
-use std::{fmt::Debug, iter::Sum, mem::MaybeUninit, ops::{AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
+use std::{iter::Sum, mem::MaybeUninit, ops::{AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use array__ops::{Array2dOps, ArrayOps, min_len, max_len};
 use num::{complex::ComplexFloat, Complex, Float, One, Zero};
 
-use crate::{ArrayMath};
+use crate::ArrayMath;
 
 #[const_trait]
 pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M, N>
@@ -843,17 +843,14 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
 #[cfg(test)]
 mod test
 {
-    use std::f64::EPSILON;
-
-    use array__ops::{Array2dOps, ArrayOps};
     use num::Complex;
 
-    use crate::{MatrixMath, SquareMatrixMath};
+    use crate::SquareMatrixMath;
 
     #[test]
     fn test()
     {
-        let mut x = [
+        let x = [
             [Complex::new(1.0, 3.0), Complex::new(2.0, 0.0)],
             [Complex::new(3.0, 0.0), Complex::new(4.0, 0.0)]
         ];

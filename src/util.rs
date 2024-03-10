@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub const fn is_power_of(mut n: usize, p: usize) -> bool
 {
     if n <= 1

@@ -1,4 +1,4 @@
-use std::{any::Any, f64::EPSILON, ops::{Add, AddAssign, Div, DivAssign, Mul, SubAssign}};
+use std::{any::Any, ops::{Add, AddAssign, Div, DivAssign, Mul, SubAssign}};
 
 use array__ops::{max_len, Array2dOps, ArrayOps};
 use num::{complex::ComplexFloat, Complex, Float, One, Signed, Zero};
@@ -345,8 +345,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
     {
         let mut t = self.upper_hessenberg_matrix();
 
-        let mut is_done = false;
-        for i in 0..2048
+        for _ in 0..2048
         {
             let p = t.cpivot_matrix_complex();
             let mut a = t.mul_matrix(&p);
@@ -400,7 +399,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                     }
                 }
             };
-            if i == 0 && let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
+            if let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
             {
                 *gamma = *gamma + Complex::new(T::Real::zero(), T::Real::epsilon())
             }
@@ -421,7 +420,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                 }
             }
             a = a.mul_matrix(&p.transpose());
-            is_done = true;
+            let mut is_done = true;
             if a.iter().any(|a| a.iter().any(|a| Float::is_nan(a.abs())))
             {
                 break;
@@ -469,8 +468,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         let mut t = a;
         let mut u = <[[T; N]; N]>::identity_matrix();
 
-        let mut is_done = false;
-        for i in 0..2048
+        for _ in 0..2048
         {
             let p = t.cpivot_matrix_complex();
             let mut a = t.mul_matrix(&p);
@@ -547,7 +545,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
             }
             a = a.mul_matrix(&p.transpose());
             u = u.mul_matrix(&p.transpose());
-            is_done = true;
+            let mut is_done = true;
             if a.iter().any(|a| a.iter().any(|a| Float::is_nan(a.abs())))
             {
                 break;

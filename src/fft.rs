@@ -1,7 +1,7 @@
 use std::{f64::consts::TAU, iter::Sum, ops::{AddAssign, MulAssign}};
 
-use array__ops::{ArrayOps, SliceOps};
-use num::{complex::ComplexFloat, integer::Roots, Complex, Float, NumCast, Zero};
+use array__ops::SliceOps;
+use num::{complex::ComplexFloat, Complex, Float, NumCast};
 use slice_math::SliceMath;
 
 use crate::{util, ArrayMath};
@@ -206,6 +206,7 @@ where
 fn test()
 {
     use crate::ArrayMath;
+    use num::Zero;
 
     let mut x = [0.0; 256];
     x[0] = 1.0;

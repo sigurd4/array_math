@@ -105,12 +105,11 @@ mod test
 
     const PLOT_TARGET: &str = "plots";
 
+    #[allow(unused)]
     pub fn benchmark<T, R>(x: &[T], f: &dyn Fn(T) -> R) -> Duration
     where
         T: Clone
     {
-        use std::time::SystemTime;
-
         let x = x.to_vec();
         let t0 = SystemTime::now();
         x.into_iter().for_each(|x| {f(x);});
@@ -152,7 +151,7 @@ mod test
                 .ifft();
         }
 
-        fn f3<const N: usize>(mut array: &mut [Complex<f32>; N])
+        fn f3<const N: usize>(array: &mut [Complex<f32>; N])
         {
             let fft = FftPlanner::new()
                 .plan_fft_forward(array.len());

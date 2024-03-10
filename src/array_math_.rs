@@ -1,7 +1,6 @@
-use std::{any::Any, f64::consts::TAU, iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
+use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use array__ops::{max_len, ArrayOps, SliceOps};
-use slice_math::SliceMath;
+use array__ops::ArrayOps;
 use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
 use crate::{fft, MatrixMath, SquareMatrixMath};
@@ -623,7 +622,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float> + Copy
     {
-        const N: usize = 3;
+        //const N: usize = 3;
         self.magnitude_squared()
             .sqrt()
     }
@@ -638,7 +637,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     where
         T: Mul<T, Output: AddAssign + Zero + Float> + Copy
     {
-        const N: usize = 4;
+        //const N: usize = 4;
         self.magnitude_squared()
             .sqrt()
             .recip()
