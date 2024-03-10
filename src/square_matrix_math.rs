@@ -29,13 +29,35 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
     fn upper_hessenberg_matrix(&self) -> [[T; N]; N]
     where
         T: ComplexFloat + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy;
-    fn hessenbergp_matrix(&self) -> ([[T; N]; N], [[T; N]; N])
-    where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy;
 
+    /// Returns the eigenvalues of the given matrix
     fn eigenvalues(&self) -> [T; N]
     where
         T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static;
+    /// Returns the eigenvalues and eigenvectors of the given matrix
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// let a = [
+    ///     [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0)],
+    ///     [Complex::new(3.0, 1.0), Complex::new(4.0, -4.0)]
+    /// ];
+    /// 
+    /// let (e, v) = a.eigen();
+    /// 
+    /// for (e, v) in e.zip(v)
+    /// {
+    ///     let av = a.mul_matrix(v.as_collumn()).map(|[av]| av);
+    ///     let vlambda = v.mul_all(e);
+    ///     
+    ///     for (avi, vlambdai) in av.zip(vlambda)
+    ///     {
+    ///         let d = (avi - vlambdai).norm();
+    ///         assert!(d < 1e-10)
+    ///     }
+    /// }
+    /// ```
     fn eigen(&self) -> ([T; N], [[T; N]; N])
     where
         T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Add<T::Real, Output = T> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
@@ -326,17 +348,6 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
             }
         }
         a
-    }
-    fn hessenbergp_matrix(&self) -> ([[T; N]; N], [[T; N]; N])
-    where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy
-    {
-        let p = self.rpivot_matrix_complex();
-        let pa = p.mul_matrix(self);
-    
-        let h = pa.upper_hessenberg_matrix();   
-    
-        (h, p)
     }
     
     fn eigenvalues(&self) -> [T; N]

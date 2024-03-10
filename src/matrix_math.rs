@@ -843,21 +843,33 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
 #[cfg(test)]
 mod test
 {
+    use std::f64::EPSILON;
+
+    use array__ops::ArrayOps;
     use num::Complex;
 
-    use crate::SquareMatrixMath;
+    use crate::{MatrixMath, SquareMatrixMath};
 
     #[test]
     fn test()
     {
-        let x = [
-            [Complex::new(1.0, 3.0), Complex::new(2.0, 0.0)],
-            [Complex::new(3.0, 0.0), Complex::new(4.0, 0.0)]
+        let a = [
+            [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0)],
+            [Complex::new(3.0, 1.0), Complex::new(4.0, -4.0)]
         ];
 
-        let (e, v) = x.eigen();
+        let (e, v) = a.eigen();
 
-        println!("e = {:?}", e);
-        println!("v = {:?}", v);
+        for (e, v) in e.zip(v)
+        {
+            let av = a.mul_matrix(v.as_collumn()).map(|[av]| av);
+            let vlambda = v.mul_all(e);
+            
+            for (avi, vlambdai) in av.zip(vlambda)
+            {
+                let d = (avi - vlambdai).norm();
+                assert!(d < 1e-10)
+            }
+        }
     }
 }
