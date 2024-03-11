@@ -193,6 +193,13 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     fn lup_matrix_complex(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M])
     where
         T: ComplexFloat + AddAssign + Copy;
+        
+    fn lupq_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M], [[T; N]; N])
+    where
+        T: Neg<Output = T> + Zero + One + PartialOrd + Mul<Output = T> + AddAssign + Copy + Sub<Output = T> + Div<Output = T>;
+    fn lupq_matrix_complex(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M], [[T; N]; N])
+    where
+        T: ComplexFloat + AddAssign + Copy;
             
     fn lu_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)])
     where
@@ -595,7 +602,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
             let mut m = n + 1;
             while m < M
             {
-                let e_abs = self[n][n].abs();
+                let e_abs = self[m][m].abs();
                 if e_abs > e_abs_max
                 {
                     row_max = m;
@@ -621,7 +628,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
     where
         T: ComplexFloat + Copy
     {
-        self.transpose().rpivot_matrix_complex()
+        self.transpose().rpivot_matrix_complex().transpose()
     }
     
     fn lup_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M])
@@ -645,6 +652,33 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         let (l, u) = pa.lu_matrix();   
     
         (l, u, p)
+    }
+    
+    fn lupq_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M], [[T; N]; N])
+    where
+        T: Neg<Output = T> + Zero + One + PartialOrd + Mul<Output = T> + AddAssign + Copy + Sub<Output = T> + Div<Output = T>
+    {
+        let p = self.rpivot_matrix();
+        let pa = p.mul_matrix(self);
+        let q = pa.cpivot_matrix();
+        let paq = pa.mul_matrix(&q);
+    
+        let (l, u) = paq.lu_matrix();   
+    
+        (l, u, p, q)
+    }
+    fn lupq_matrix_complex(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)], [[T; M]; M], [[T; N]; N])
+    where
+        T: ComplexFloat + AddAssign + Copy
+    {
+        let p = self.rpivot_matrix_complex();
+        let pa = p.mul_matrix(self);
+        let q = pa.cpivot_matrix_complex();
+        let paq = pa.mul_matrix(&q);
+    
+        let (l, u) = paq.lu_matrix();   
+    
+        (l, u, p, q)
     }
             
     fn lu_matrix(&self) -> ([[T; max_len(M, N)]; M], [[T; N]; max_len(M, N)])
@@ -678,7 +712,14 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
                 }
                 if !(self[i][n] - s).is_zero()
                 {
-                    l[i][n] = (self[i][n] - s)/u[n][n];
+                    if s.is_zero()
+                    {
+                        l[i][n] = self[i][n]/u[n][n];
+                    }
+                    else
+                    {
+                        l[i][n] = (self[i][n] - s)/u[n][n];
+                    }
                 }
             }
         }
@@ -691,7 +732,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         T: Zero + Neg<Output = T> + One + Copy + AddAssign + PartialOrd + Zero + Mul<Output = T> + MulAssign + Sub<Output = T> + Div<Output = T>,
         [(); max_len(M, N)]:
     {
-        let (l, u, p) = self.lup_matrix();
+        let (l, u, p, q) = self.lupq_matrix();
     
         let mut det_abs = One::one();
     
@@ -709,7 +750,22 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         while m < M
         {
             let mut n = 0;
-            while n < N && p[m][n].is_zero()
+            while n < M && p[m][n].is_zero()
+            {
+                n += 1;
+            };
+            if n != m
+            {
+                s = !s;
+            }
+            m += 1;
+        }
+        
+        let mut m = 0;
+        while m < N
+        {
+            let mut n = 0;
+            while n < N && q[m][n].is_zero()
             {
                 n += 1;
             };
@@ -820,7 +876,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         T: Zero + Neg<Output = T> + One + Copy + AddAssign + PartialOrd + MulAssign + Sub<Output = T> + Div<Output = T>,
         [(); max_len(M, N)]:
     {
-        let (l, u, _) = self.lup_matrix();
+        let (l, u, _, _) = self.lupq_matrix();
         
         let mut n = 0;
         while n != N

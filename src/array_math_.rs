@@ -1460,11 +1460,16 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
 #[test]
 fn test()
 {
-    let x = [1.0f64, 2.0, 1.0];
+    let a = [
+        [0.0, 8.0, 4.0],
+        [0.0, 5.0, 2.5],
+        [0.0, 2.0, 1.0]
+    ];
 
-    let x = x.map(|x| Complex::new(x, 0.0));
-    
-    let a = x.polynomial_roots();
+    let a = a.map(|a| a.map(|a| Complex::new(a, 0.0)));
 
-    println!("{:?}", a)
+    let (e, v) = a.eigen();
+
+    println!("{:?}", e);
+    println!("{:?}", v)
 }

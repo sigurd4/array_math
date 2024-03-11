@@ -1,6 +1,6 @@
 use std::{any::Any, f64::consts::SQRT_3, ops::{Add, AddAssign, Div, DivAssign, Mul, SubAssign}};
 
-use array__ops::{max_len, Array2dOps, ArrayOps};
+use array__ops::{max_len, Array2dOps, ArrayOps, CollumnArrayOps};
 use num::{complex::ComplexFloat, Complex, Float, One, Signed, Zero};
 
 use crate::{ArrayMath, MatrixMath};
@@ -34,7 +34,9 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
     fn eigenvalues(&self) -> [T; N]
     where
         T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static;
-    /// Returns the eigenvalues and eigenvectors of the given matrix
+    /// Returns the eigenvalues and eigenvectors of the given matrix.
+    /// 
+    /// The method uses the algorithm described in [Convergence of the Shifted QR Algorithm for Unitary Hessenberg Matrices - Tai-Lin Wang and William B. Gragg](https://www.ams.org/journals/mcom/2002-71-240/S0025-5718-01-01387-4/S0025-5718-01-01387-4.pdf).
     /// 
     /// # Examples
     /// 
@@ -199,11 +201,12 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         T: Copy + Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign,
         [(); max_len(N, N)]:
     {
-        let (l, u, p) = self.lup_matrix();
+        let (l, u, p, q) = self.lupq_matrix();
     
         let [bp] = core::array::from_ref(b).mul_matrix(&p);
+        let qbp = q.mul_matrix(&bp.as_collumn()).into_uncollumn();
     
-        let mut x = bp;
+        let mut x = qbp;
         
         let mut m = 0;
         while m != N
@@ -243,11 +246,10 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         T: ComplexFloat + AddAssign + SubAssign + DivAssign + Copy,
         [(); max_len(N, N)]:
     {
-        let (l, u, p) = self.lup_matrix_complex();
+        let (l, u, p, q) = self.lupq_matrix_complex();
+        //let (l, u, p) = self.lup_matrix_complex();
     
-        let [bp] = core::array::from_ref(b).mul_matrix(&p);
-    
-        let mut x = bp;
+        let mut x = p.mul_matrix(b.as_collumn()).into_uncollumn();
         
         let mut m = 0;
         while m != N
@@ -280,7 +282,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
             }
         }
     
-        x
+        q.mul_matrix(&x.as_collumn()).into_uncollumn()
     }
 
     fn upper_hessenberg_matrix(&self) -> [[T; N]; N]
@@ -357,12 +359,12 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
     where
         T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static
     {
-        let mut t = *self; //self.upper_hessenberg_matrix();
+        let a = *self; //self.upper_hessenberg_matrix();
+        let mut t = a;
 
         for _ in 0..2048
         {
-            let p = t.cpivot_matrix_complex();
-            let mut a = t.mul_matrix(&p);
+            let mut a = t;
             let mut gamma = qr_shift(&a);
             if let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
             {
@@ -384,7 +386,6 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                     a[k][k] += gamma;
                 }
             }
-            a = a.mul_matrix(&p.transpose());
             let mut is_done = true;
             if a.iter().any(|a| a.iter().any(|a| Float::is_nan(a.abs())))
             {
@@ -427,7 +428,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         const TEST: bool = true;
         #[cfg(not(test))]
         const TEST: bool = false;
-        const EPS: f64 = 0.00001;
+        const TEST_EPSILON: f64 = 0.00001;
 
         let a = *self; //self.upper_hessenberg_matrix();
         let mut t = a;
@@ -435,8 +436,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
 
         for _ in 0..2048
         {
-            let p = t.cpivot_matrix_complex();
-            let mut a = t.mul_matrix(&p);
+            let mut a = t;
             let mut gamma = qr_shift(&a);
             if let Some(gamma) = <dyn Any>::downcast_mut::<Complex<T::Real>>(&mut gamma as &mut dyn Any)
             {
@@ -459,8 +459,6 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                     a[k][k] += gamma;
                 }
             }
-            a = a.mul_matrix(&p.transpose());
-            u = u.mul_matrix(&p.transpose());
             let mut is_done = true;
             if a.iter().any(|a| a.iter().any(|a| Float::is_nan(a.abs())))
             {
@@ -496,7 +494,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         
         if TEST
         {
-            // Test if AU == UR
+            // Test if AU == UT
             let au = a.mul_matrix(&u);
             let ut = u.mul_matrix(&t);
             for i in 0..N
@@ -504,9 +502,9 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                 for j in 0..N
                 {
                     let d = (au[i][j] - ut[i][j]).abs();
-                    if d > T::from(EPS).unwrap().re()
+                    if !(d < T::from(TEST_EPSILON).unwrap().re())
                     {
-                        panic!("AU != UR")
+                        panic!("AU != UT")
                     }
                 }
             }
@@ -546,9 +544,9 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                 for j in 0..N
                 {
                     let d = (tv[i][j] - vlambda[i][j]).abs();
-                    if d > T::from(EPS).unwrap().re()
+                    if !(d < T::from(TEST_EPSILON).unwrap().re())
                     {
-                        panic!("RV != Vlambda")
+                        panic!("TV != Vlambda")
                     }
                 }
             }
@@ -566,7 +564,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                 for j in 0..N
                 {
                     let d = (aw[i][j] - wlambda[i][j]).abs();
-                    if d > T::from(EPS).unwrap().re()
+                    if !(d < T::from(TEST_EPSILON).unwrap().re())
                     {
                         panic!("AW != Wlambda")
                     }
@@ -605,7 +603,7 @@ where
         };
         let theta = phi.min(psi);
 
-        if (beta_nm2*theta).abs() < beta_nm1.abs()
+        if beta_nm2_abs*theta < beta_nm1_abs
         {
             a[N - 1][N - 1]
         }
