@@ -1461,7 +1461,7 @@ mod test
     #[test]
     fn test()
     {
-        let p = [0.0, 1.0, 1.0];
+        let p = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 
         let p = p.map(|b| Complex::new(b, 0.0));
 
