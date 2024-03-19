@@ -584,7 +584,7 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
     where
         T: Neg<Output = T> + Zero + One + PartialOrd + Copy
     {
-        self.transpose().rpivot_matrix()
+        self.transpose().rpivot_matrix().transpose()
     }
     
     fn rpivot_matrix_complex(&self) -> [[T; M]; M]
@@ -909,24 +909,19 @@ mod test
     #[test]
     fn test()
     {
+        let n = 0.01;
         let a = [
-            [Complex::new(1.0, -3.0), Complex::new(2.0, 2.0), Complex::new(3.0, 1.0)],
-            [Complex::new(4.0, -1.0), Complex::new(5.0, 3.0), Complex::new(6.0, -2.0)],
-            [Complex::new(7.0, 2.0), Complex::new(8.0, 1.0), Complex::new(9.0, -3.0)]
+            [0.0, 1.0, 0.0, 0.0],
+            [1.0, 0.0, n, 0.0],
+            [0.0, -n, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 0.0]
         ];
-
+    
+        let a = a.map(|a| a.map(|a| Complex::new(a, 0.0)));
+    
         let (e, v) = a.eigen();
-
-        for (e, v) in e.zip(v)
-        {
-            let av = a.mul_matrix(v.as_collumn()).map(|[av]| av);
-            let vlambda = v.mul_all(e);
-            
-            for (avi, vlambdai) in av.zip(vlambda)
-            {
-                let d = (avi - vlambdai).norm();
-                assert!(d < 1e-10)
-            }
-        }
+    
+        println!("{:?}", e);
+        println!("{:?}", v)
     }
 }

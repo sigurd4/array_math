@@ -176,13 +176,15 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>;
-    fn polynomial_roots(&self) -> [T; N - 1]
+    fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:;
-    fn rpolynomial_roots(&self) -> [T; N - 1]
+    fn rpolynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:;
 
     /// Performs direct convolution.
@@ -895,36 +897,30 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
         c
     }
-    fn polynomial_roots(&self) -> [T; N - 1]
+    fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:
     {
         let scale = self.magnitude_complex();
         let c = self.companion_matrix();
         let mut roots = c.eigenvalues();
         // Use newtons method
-        let dp = self.derivate_polynomial();
+        let p: [Complex<T::Real>; _] = self.map(|p| From::from(p));
+        let dp = p.derivate_polynomial();
         for k in 0..N - 1
         {
             const NEWTON: usize = NEWTON_POLYNOMIAL_ROOTS;
 
             for _ in 0..NEWTON
             {
-                let df = self.polynomial(roots[k]);
+                let df = p.polynomial(roots[k]);
                 if df.is_zero()
                 {
                     break
                 }
                 roots[k] -= df/dp.polynomial(roots[k])
-            }
-        }
-        // Eliminate non-converging roots
-        for k in 0..N - 1
-        {
-            if self.rpolynomial(roots[k]).abs() >= scale*T::Real::epsilon()
-            {
-                roots[k] = T::from(T::Real::nan()).unwrap()
             }
         }
         let mut excess = 0;
@@ -950,49 +946,43 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
                         {
                             roots[k] += roots[i];
                             j += 1;
-                            roots[i] = T::from(T::Real::nan()).unwrap();
+                            roots[i] = From::from(T::Real::nan());
                             excess -= 1;
                         }
                     }
                 }
                 if j > 1
                 {
-                    roots[k] /= T::from(j).unwrap();
+                    roots[k] /= <T::Real as NumCast>::from(j).unwrap();
                 }
             }
         }
         roots
     }
-    fn rpolynomial_roots(&self) -> [T; N - 1]
+    fn rpolynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
-        T: ComplexFloat<Real: 'static> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real> + Div<T::Real, Output = T> + Mul<T::Real, Output = T> + Copy + 'static,
+        Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:
     {
         let scale = self.magnitude_complex();
         let c = self.rcompanion_matrix();
         let mut roots = c.eigenvalues();
         // Use newtons method
-        let dp = self.derivate_rpolynomial();
+        let p: [Complex<T::Real>; _] = self.map(|p| From::from(p));
+        let dp = p.derivate_rpolynomial();
         for k in 0..N - 1
         {
             const NEWTON: usize = NEWTON_POLYNOMIAL_ROOTS;
 
             for _ in 0..NEWTON
             {
-                let df = self.rpolynomial(roots[k]);
+                let df = p.rpolynomial(roots[k]);
                 if df.is_zero()
                 {
                     break
                 }
                 roots[k] -= df/dp.rpolynomial(roots[k])
-            }
-        }
-        // Eliminate non-converging roots
-        for k in 0..N - 1
-        {
-            if self.rpolynomial(roots[k]).abs() >= scale*T::Real::epsilon()
-            {
-                roots[k] = T::from(T::Real::nan()).unwrap()
             }
         }
         let mut excess = 0;
@@ -1018,14 +1008,14 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
                         {
                             roots[k] += roots[i];
                             j += 1;
-                            roots[i] = T::from(T::Real::nan()).unwrap();
+                            roots[i] = From::from(T::Real::nan());
                             excess -= 1;
                         }
                     }
                 }
                 if j > 1
                 {
-                    roots[k] /= T::from(j).unwrap();
+                    roots[k] /= <T::Real as NumCast>::from(j).unwrap();
                 }
             }
         }
@@ -1457,19 +1447,27 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     }
 }
 
-#[test]
-fn test()
+#[cfg(test)]
+mod test
 {
-    let a = [
-        [0.0, 8.0, 4.0],
-        [0.0, 5.0, 2.5],
-        [0.0, 2.0, 1.0]
-    ];
+    use num::Complex;
 
-    let a = a.map(|a| a.map(|a| Complex::new(a, 0.0)));
+    use crate::ArrayMath;
 
-    let (e, v) = a.eigen();
+    #[test]
+    fn test()
+    {
+        let p = [0.0, 1.0, 1.0];
 
-    println!("{:?}", e);
-    println!("{:?}", v)
+        let p = p.map(|b| Complex::new(b, 0.0));
+
+        let r = p.rpolynomial_roots();
+
+        println!("x = {:?}", r);
+
+        for r in r
+        {
+            println!("p = {:?}", p.rpolynomial(r));
+        }
+    }
 }
