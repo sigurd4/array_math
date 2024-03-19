@@ -79,7 +79,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         T: Signed + PartialOrd + One + Zero + Copy + SubAssign + DivAssign + AddAssign,
         [(); max_len(N, N)]:
     {
-        let (p, l, u) = self.lup_matrix();
+        let (l, u, p) = self.lup_matrix();
         
         let mut n = 0;
         while n != N
@@ -141,7 +141,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         T: ComplexFloat + SubAssign + DivAssign + AddAssign + Copy,
         [(); max_len(N, N)]:
     {
-        let (p, l, u) = self.lup_matrix_complex();
+        let (l, u, p) = self.lup_matrix_complex();
         
         let mut n = 0;
         while n != N

@@ -885,7 +885,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             n -= 1;
         }
         let mut i = n;
-        while i > 0
+        loop
         {
             c[n - i][n - 1] = -self[i];
             c[n - i][n - 1] /= self[N - 1 - n];
@@ -893,6 +893,10 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             if i > 0
             {
                 c[i][i - 1] = One::one();
+            }
+            else
+            {
+                break
             }
         }
         c

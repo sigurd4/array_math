@@ -209,6 +209,10 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     where
         T: Zero + Neg<Output = T> + One + Copy + AddAssign + PartialOrd + Zero + Mul<Output = T> + MulAssign + Sub<Output = T> + Div<Output = T>,
         [(); max_len(M, N)]:;
+    fn det_matrix_complex(&self) -> T
+    where
+        T: ComplexFloat + AddAssign + MulAssign + Copy,
+        [(); max_len(M, N)]:;
         
     fn qrp_matrix(&self) -> ([[T; M]; M], [[T; N]; M], [[T; N]; N])
     where
@@ -778,6 +782,62 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
     
         return if !s {det_abs} else {-det_abs}
     }
+    fn det_matrix_complex(&self) -> T
+    where
+        T: ComplexFloat + AddAssign + MulAssign + Copy,
+        [(); max_len(M, N)]:
+    {
+        let (l, u, p, q) = self.lupq_matrix_complex();
+    
+        let mut det_abs = One::one();
+    
+        let mut n = 0;
+        while n < M
+        {
+            det_abs *= l[n][n];
+            n += 1;
+        }
+        let mut n = 0;
+        while n < N
+        {
+            det_abs *= u[n][n];
+            n += 1;
+        }
+    
+        let mut s = false;
+    
+        let mut m = 0;
+        while m < M
+        {
+            let mut n = 0;
+            while n < M && p[m][n].is_zero()
+            {
+                n += 1;
+            };
+            if n != m
+            {
+                s = !s;
+            }
+            m += 1;
+        }
+        
+        let mut m = 0;
+        while m < N
+        {
+            let mut n = 0;
+            while n < N && q[m][n].is_zero()
+            {
+                n += 1;
+            };
+            if n != m
+            {
+                s = !s;
+            }
+            m += 1;
+        }
+    
+        return if !s {det_abs} else {-det_abs}
+    }
     
     fn qrp_matrix(&self) -> ([[T; M]; M], [[T; N]; M], [[T; N]; N])
     where
@@ -879,12 +939,17 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         let (l, u, _, _) = self.lupq_matrix();
         
         let mut n = 0;
-        while n != N
+        while n < M
         {
             if l[n][n].is_zero()
             {
                 return false
             }
+            n += 1;
+        }
+        let mut n = 0;
+        while n < N
+        {
             if u[n][n].is_zero()
             {
                 return false
