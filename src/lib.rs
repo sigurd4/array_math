@@ -46,9 +46,9 @@ mod test
         let a = [1.0, 2.0, 1.0];
             //.map(|a| Complex::new(a, 0.0));
     
-        let roots = a.integrate_rpolynomial(0.0);
+        let b = a.convolve_fft([1.0, 1.0]);
     
-        println!("{:?}", roots)
+        println!("{:?}", b)
     }
     
     #[test]
