@@ -50,6 +50,32 @@ mod test
     
         println!("{:?}", b)
     }
+
+    #[test]
+    fn test_matrix_cov()
+    {
+        let a = [
+            [1.0, 2.0],
+            [4.0, 4.0]
+        ];
+
+        let c = a.covariance_matrix(None);
+
+        println!("{:?}", c)
+    }
+
+    #[test]
+    fn test_polyfit()
+    {
+        let p = [2.0, -4.0, 1.0];
+
+        let x = [4.0, -1.0, 6.0, 7.0];
+        let y = x.map(|x| p.rpolynomial(x));
+
+        let p = <[f64; 3]>::rpolyfit(&x, &y);
+
+        println!("{:?}", p);
+    }
     
     #[test]
     fn test_matrix_solve()
@@ -59,12 +85,21 @@ mod test
             [2.0, 8.0]
         ];
         let b = [
-            6.0,
+            10.0,
             -12.0
         ];
 
+        let x = a.solve_square_matrix(&b);
+        println!("x = {:?}", x);
+
+        let y = a.mul_matrix(x.as_collumn());
+        println!("y = {:?}", y);
+        
         let x = a.solve_matrix(&b);
         println!("x = {:?}", x);
+
+        let y = a.mul_matrix(x.as_collumn());
+        println!("y = {:?}", y);
     }
 
     #[test]

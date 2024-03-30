@@ -1,7 +1,7 @@
 use core::any::Any;
 use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use array__ops::ArrayOps;
+use array__ops::{max_len, Array2dOps, ArrayOps, CollumnArrayOps};
 use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
 use crate::{fft, MatrixMath, SquareMatrixMath};
@@ -21,76 +21,16 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
 
     fn variance(self) -> <T as Mul>::Output
     where
-        Self: ArrayOps<T, N> + Copy,
-        u8: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u8::MAX as usize - N]:;
-    
-    fn variance16(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u16: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u16::MAX as usize - N]:;
-    
-    fn variance32(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u32: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u32::MAX as usize - N]:;
-    
-    fn variance64(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u64: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero;
+        Self: Copy,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero + NumCast;
     
     fn avg(self) -> <T as Div>::Output
     where
-        u8: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u8::MAX as usize - N]:;
-    
-    fn avg16(self) -> <T as Div>::Output
-    where
-        u16: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u16::MAX as usize - N]:;
-
-    fn avg32(self) -> <T as Div>::Output
-    where
-        u32: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u32::MAX as usize - N]:;
-    
-    fn avg64(self) -> <T as Div>::Output
-    where
-        u64: Into<T>,
-        T: Div + AddAssign + Zero;
+        T: Div + AddAssign + Zero + NumCast;
 
     fn geometric_mean(self) -> <T as Pow<<T as Inv>::Output>>::Output
     where
-        u8: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u8::MAX as usize - N]:;
-
-    fn geometric_mean16(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u16: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u16::MAX as usize - N]:;
-        
-    fn geometric_mean32(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u32: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u32::MAX as usize - N]:;
-        
-    fn geometric_mean64(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u64: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv;
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv + NumCast;
 
     fn mul_dot<Rhs>(self, rhs: [Rhs; N]) -> <T as Mul<Rhs>>::Output
     where
@@ -145,6 +85,10 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: ComplexFloat + AddAssign + MulAssign<<T::Real as Mul<Rhs>>::Output>,
         T::Real: Mul<Rhs, Output: Copy>;
+        
+    fn ellipke(self, tol: Option<T>) -> Option<([T; N], [T; N])>
+    where
+        T: Float + FloatConst + AddAssign + MulAssign;
 
     fn polynomial<Rhs>(self, rhs: Rhs) -> T
     where
@@ -177,6 +121,9 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Copy + Neg + Zero,
         <T as Neg>::Output: One + Zero + DivAssign<T>;
+    fn vandermonde_matrix<const M: usize>(&self) -> [[T; M]; N]
+    where
+        T: One + Copy + Mul;
     fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
         Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
@@ -187,6 +134,21 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
         T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:;
+
+    fn polyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Y: Copy,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:;
+    fn rpolyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Y: Copy,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:;
 
     /// Performs direct convolution.
     /// This is equivalent to a polynomial multiplication.
@@ -496,118 +458,28 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             One::one()
         }
     }
-
+    
     fn variance(self) -> <T as Mul>::Output
     where
-        Self: ArrayOps<T, N> + Copy,
-        u8: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u8::MAX as usize - N]:
+        Self: Copy,
+        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero + NumCast
     {
         let mu = self.avg();
         self.mul_dot_bias(self, -(mu*mu))
     }
     
-    fn variance16(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u16: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u16::MAX as usize - N]:
-    {
-        let mu = self.avg16();
-        self.mul_dot_bias(self, -(mu*mu))
-    }
-    
-    fn variance32(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u32: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-        [(); u32::MAX as usize - N]:
-    {
-        let mu = self.avg32();
-        self.mul_dot_bias(self, -(mu*mu))
-    }
-    
-    fn variance64(self) -> <T as Mul>::Output
-    where
-        Self: ArrayOps<T, N> + Copy,
-        u64: Into<T>,
-        T: Div<Output: Mul<Output: Neg<Output = <T as Mul>::Output>> + Copy> + Mul<Output: AddAssign> + AddAssign + Zero,
-    {
-        let mu = self.avg64();
-        self.mul_dot_bias(self, -(mu*mu))
-    }
-    
     fn avg(self) -> <T as Div>::Output
     where
-        u8: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u8::MAX as usize - N]:
+        T: Div + AddAssign + Zero + NumCast
     {
-        self.sum()/(N as u8).into()
-    }
-    
-    fn avg16(self) -> <T as Div>::Output
-    where
-        u16: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u16::MAX as usize - N]:
-    {
-        self.sum()/(N as u16).into()
-    }
-
-    fn avg32(self) -> <T as Div>::Output
-    where
-        u32: Into<T>,
-        T: Div + AddAssign + Zero,
-        [(); u32::MAX as usize - N]:
-    {
-        self.sum()/(N as u32).into()
-    }
-    
-    fn avg64(self) -> <T as Div>::Output
-    where
-        u64: Into<T>,
-        T: Div + AddAssign + Zero
-    {
-        self.sum()/(N as u64).into()
+        self.sum()/T::from(N).unwrap()
     }
     
     fn geometric_mean(self) -> <T as Pow<<T as Inv>::Output>>::Output
     where
-        u8: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u8::MAX as usize - N]:
+        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv + NumCast
     {
-        self.product().pow((N as u8).into().inv())
-    }
-
-    fn geometric_mean16(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u16: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u16::MAX as usize - N]:
-    {
-        self.product().pow((N as u16).into().inv())
-    }
-        
-    fn geometric_mean32(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u32: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv,
-        [(); u32::MAX as usize - N]:
-    {
-        self.product().pow((N as u32).into().inv())
-    }
-        
-    fn geometric_mean64(self) -> <T as Pow<<T as Inv>::Output>>::Output
-    where
-        u64: Into<T>,
-        T: MulAssign + One + Pow<<T as Inv>::Output> + Inv
-    {
-        self.product().pow((N as u64).into().inv())
+        self.product().pow(T::from(N).unwrap().inv())
     }
 
     fn mul_dot<Rhs>(self, rhs: [Rhs; N]) -> <T as Mul<Rhs>>::Output
@@ -724,6 +596,134 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         self.mul_assign_all(<T::Real as Mul<Rhs>>::mul(self.magnitude_inv_complex(), magnitude))
     }
     
+    fn ellipke(mut self, tol: Option<T>) -> Option<([T; N], [T; N])>
+    where
+        T: Float + FloatConst + AddAssign + MulAssign
+    {
+        let one = T::one();
+    
+        if self.iter()
+            .any(|m| m > &one)
+        {
+            return None
+        }
+    
+        let tol = tol.unwrap_or_else(T::epsilon);
+    
+        let zero = T::zero();
+        let two = one + one;
+        let half = two.recip();
+    
+        let mut k = [zero; N];
+        let mut e = [zero; N];
+    
+        let mut idx = vec![];
+        for (i, &m) in self.iter()
+            .enumerate()
+        {
+            if m == one
+            {
+                k[i] = T::infinity();
+                e[i] = one;
+            }
+            else if m == T::neg_infinity()
+            {
+                k[i] = zero;
+                e[i] = T::infinity();
+            }
+            else
+            {
+                idx.push(i);
+            }
+        }
+    
+        const N_MAX: usize = 16;
+    
+        if !idx.is_empty()
+        {
+            let idx_neg: Vec<_> = idx.iter()
+                .filter(|&&i| self[i] < zero)
+                .map(|&i| i)
+                .collect();
+            let mult_e: Vec<_> = idx_neg.iter()
+                .map(|&i| (one - self[i]).sqrt())
+                .collect();
+            let mult_k: Vec<_> = mult_e.iter()
+                .map(|&e| e.recip())
+                .collect();
+            for &i in idx_neg.iter()
+            {
+                self[i] = -self[i]/(one - self[i])
+            }
+            let mut b: Vec<_> = idx.iter()
+                .map(|&i| (one - self[i]).sqrt())
+                .collect();
+            let mut a = vec![one; idx.len()];
+            let mut c: Vec<_> = idx.iter()
+                .map(|&i| self[i].sqrt())
+                .collect();
+            let mut f = half;
+            let mut sum: Vec<_> = c.into_iter()
+                .map(|c| f*c*c)
+                .collect();
+            let mut n = 2;
+            while n <= N_MAX
+            {
+                let t = a.iter()
+                    .zip(b.iter())
+                    .map(|(&a, &b)| (a + b)*half)
+                    .collect();
+                c = a.iter()
+                    .zip(b.iter())
+                    .map(|(&a, &b)| (a - b)*half)
+                    .collect();
+                b = a.into_iter()
+                    .zip(b.into_iter())
+                    .map(|(a, b)| (a*b).sqrt())
+                    .collect();
+                a = t;
+                f *= two;
+                let mut done = true;
+                for ((s, c), &a) in sum.iter_mut()
+                    .zip(c.into_iter())
+                    .zip(a.iter())
+                {
+                    *s += f*c*c;
+                    if done && c > tol*a
+                    {
+                        done = false
+                    }
+                }
+                if done
+                {
+                    break
+                }
+    
+                n += 1;
+            }
+            if n >= N_MAX
+            {
+                return None
+            }
+            for ((i, a), sum) in idx.into_iter()
+                .zip(a.into_iter())
+                .zip(sum.into_iter())
+            {
+                k[i] = T::FRAC_PI_2()/a;
+                e[i] = k[i]*(one - sum);
+            }
+            for ((i, mk), me) in idx_neg.into_iter()
+                .zip(mult_k.into_iter())
+                .zip(mult_e.into_iter())
+            {
+                k[i] *= mk;
+                e[i] *= me;
+            }
+        }
+    
+        Some((k, e))
+    }
+
     fn polynomial<Rhs>(self, rhs: Rhs) -> T
     where
         T: AddAssign + MulAssign<Rhs> + Zero,
@@ -903,6 +903,20 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
         c
     }
+    fn vandermonde_matrix<const M: usize>(&self) -> [[T; M]; N]
+    where
+        T: One + Copy + Mul
+    {
+        let mut m = [[T::one(); M]; N];
+        for j in (0..M - 1).rev()
+        {
+            for k in 0..N
+            {
+                m[k][j] = self[k]*m[k][j + 1]
+            }
+        }
+        m
+    }
     fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
         Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
@@ -1026,6 +1040,35 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             }
         }
         roots
+    }
+    
+    fn polyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Y: Copy,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:
+    {
+        let mut p = Self::rpolyfit(x, y);
+        p.reverse();
+        p
+    }
+    fn rpolyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Y: Copy,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:
+    {
+        let v = x.vandermonde_matrix::<N>();
+
+        let (q, r) = v.qr_matrix();
+        let qtmy = q.transpose().mul_matrix(y.as_collumn());
+        let p = r.map(|r| r.map(|r| r.into())).solve_matrix(qtmy.as_uncollumn());
+
+        p
     }
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]

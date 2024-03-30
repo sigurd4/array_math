@@ -1,10 +1,10 @@
-use core::any::Any;
+use core::{any::Any, ops::Add};
 use std::{iter::Sum, mem::MaybeUninit, ops::{AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use array__ops::{Array2dOps, ArrayOps, min_len, max_len};
-use num::{complex::ComplexFloat, Complex, Float, One, Zero};
+use array__ops::{max_len, min_len, Array2dOps, ArrayOps, CollumnArrayOps};
+use num::{complex::ComplexFloat, Complex, Float, NumCast, One, Signed, Zero};
 
-use crate::ArrayMath;
+use crate::{ArrayMath, SquareMatrixMath};
 
 #[const_trait]
 pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M, N>
@@ -20,6 +20,16 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     fn transpose_conj(self) -> [[T; M]; N]
     where
         T: ComplexFloat;
+        
+    fn solve_matrix(&self, y: &[T; M]) -> [T; N]
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        [(); max_len(N, N)]:,
+        [(); max_len(M, M)]:;
+
+    fn covariance_matrix(&self, expected: Option<&Self>) -> [[T; N]; N]
+    where
+        T: Div<Output = T> + Sub<Output = T> + AddAssign + SubAssign + One + Zero + NumCast + Copy;
 
     /// Performs two-dimensional direct convolution on two matrices.
     /// 
@@ -191,6 +201,38 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     where
         T: Copy + AddAssign<<Rhs as Mul<T>>::Output> + Zero,
         Rhs: Copy + Mul<T>;
+
+    fn add_matrix<Rhs>(self, rhs: [[Rhs; N]; M]) -> [[<T as Add<Rhs>>::Output; N]; M]
+    where
+        T: Add<Rhs>;
+    fn add_matrix_assign<Rhs>(&mut self, rhs: [[Rhs; N]; M])
+    where
+        T: AddAssign<Rhs>;
+        
+    fn sub_matrix<Rhs>(self, rhs: [[Rhs; N]; M]) -> [[<T as Sub<Rhs>>::Output; N]; M]
+    where
+        T: Sub<Rhs>;
+    fn sub_matrix_assign<Rhs>(&mut self, rhs: [[Rhs; N]; M])
+    where
+        T: SubAssign<Rhs>;
+        
+    fn mul_matrix_all<Rhs>(self, rhs: Rhs) -> [[<T as Mul<Rhs>>::Output; N]; M]
+    where
+        T: Mul<Rhs>,
+        Rhs: Copy;
+    fn mul_matrix_assign_all<Rhs>(&mut self, rhs: Rhs)
+    where
+        T: MulAssign<Rhs>,
+        Rhs: Copy;
+        
+    fn div_matrix_all<Rhs>(self, rhs: Rhs) -> [[<T as Div<Rhs>>::Output; N]; M]
+    where
+        T: Div<Rhs>,
+        Rhs: Copy;
+    fn div_matrix_assign_all<Rhs>(&mut self, rhs: Rhs)
+    where
+        T: DivAssign<Rhs>,
+        Rhs: Copy;
     
     fn rpivot_matrix(&self) -> [[T; M]; M]
     where
@@ -292,6 +334,99 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
             t.conj_assign_all()
         }
         t
+    }
+    
+    fn solve_matrix(&self, y: &[T; M]) -> [T; N]
+    where
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
+        [(); max_len(N, N)]:,
+        [(); max_len(M, M)]:
+    {
+        if N == 0
+        {
+            return [T::zero(); N]
+        }
+
+        let tol = T::Real::epsilon();
+
+        let at = self.transpose();
+
+        let mut beta_hat = at.mul_matrix(self)
+            .inv_matrix_complex()
+            .map(|atainv| atainv.mul_matrix(&at.mul_matrix(y.as_collumn()))
+                .into_uncollumn()
+            ).unwrap_or([T::zero(); N]);
+
+        loop
+        {
+            let epsilon = y.sub_each(self.mul_matrix(beta_hat.as_collumn()).into_uncollumn());
+
+            let mut is_done = true;
+            for e in epsilon.iter()
+            {
+                if e.abs() > tol
+                {
+                    is_done = false;
+                    break
+                }
+            }
+            if is_done
+            {
+                break
+            }
+            let sigma = (<T::Real as NumCast>::from(M).unwrap() - NumCast::from(N).unwrap()).max(One::one());
+            let omega = epsilon.mul_outer(&epsilon)
+                .div_matrix_all(sigma);
+            let omega_inv = omega.inv_matrix_complex();
+            let omega_inv = if let Some(omega_inv) = omega_inv
+            {
+                omega_inv
+            }
+            else
+            {
+                break
+            };
+            let atoinvinv = at.mul_matrix(&omega_inv)
+                .mul_matrix(self)
+                .inv_matrix_complex();
+            let atoinvinv = if let Some(atoinvinv) = atoinvinv
+            {
+                atoinvinv
+            }
+            else
+            {
+                break
+            };
+            beta_hat = atoinvinv
+                .mul_matrix(&at.mul_matrix(&omega_inv).mul_matrix(y.as_collumn()))
+                .into_uncollumn()
+        }
+
+        beta_hat
+    }
+    
+    fn covariance_matrix(&self, expected: Option<&Self>) -> [[T; N]; N]
+    where
+        T: Div<Output = T> + Sub<Output = T> + AddAssign + SubAssign + One + Zero + NumCast + Copy
+    {
+        let s = expected.is_some();
+        let expected = expected.unwrap_or(self);
+        let mean = expected.transpose()
+            .map(|col| col.avg());
+        let mut d = T::from(M).unwrap();
+        if !s
+        {
+            d -= T::one()
+        }
+
+        ArrayOps::fill(|j| ArrayOps::fill(|k| {
+            let mut c = T::zero();
+            for i in 0..M
+            {
+                c += (self[i][j] - mean[j])*(self[i][k] - mean[k])
+            }
+            c/d
+        }))
     }
     
     fn convolve_2d_direct<Rhs, const H: usize, const W: usize>(&self, rhs: &[[Rhs; W]; H]) -> [[<T as Mul<Rhs>>::Output; N + W - 1]; M + H - 1]
@@ -607,6 +742,75 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
                 p += 1;
             }
             m += 1;
+        }
+    }
+    fn add_matrix<Rhs>(self, rhs: [[Rhs; N]; M]) -> [[<T as Add<Rhs>>::Output; N]; M]
+    where
+        T: Add<Rhs>
+    {
+        self.comap(rhs, |lhs, rhs| lhs.comap(rhs, |lhs, rhs| lhs + rhs))
+    }
+    fn add_matrix_assign<Rhs>(&mut self, rhs: [[Rhs; N]; M])
+    where
+        T: AddAssign<Rhs>
+    {
+        for (i, rhs) in rhs.into_iter()
+            .enumerate()
+        {
+            self[i].add_assign_each(rhs)
+        }
+    }
+        
+    fn sub_matrix<Rhs>(self, rhs: [[Rhs; N]; M]) -> [[<T as Sub<Rhs>>::Output; N]; M]
+    where
+        T: Sub<Rhs>
+    {
+        self.comap(rhs, |lhs, rhs| lhs.comap(rhs, |lhs, rhs| lhs - rhs))
+    }
+    fn sub_matrix_assign<Rhs>(&mut self, rhs: [[Rhs; N]; M])
+    where
+        T: SubAssign<Rhs>
+    {
+        for (i, rhs) in rhs.into_iter()
+            .enumerate()
+        {
+            self[i].sub_assign_each(rhs)
+        }
+    }
+        
+    fn mul_matrix_all<Rhs>(self, rhs: Rhs) -> [[<T as Mul<Rhs>>::Output; N]; M]
+    where
+        T: Mul<Rhs>,
+        Rhs: Copy
+    {
+        self.map(|lhs| lhs.mul_all(rhs))
+    }
+    fn mul_matrix_assign_all<Rhs>(&mut self, rhs: Rhs)
+    where
+        T: MulAssign<Rhs>,
+        Rhs: Copy
+    {
+        for lhs in self.iter_mut()
+        {
+            lhs.mul_assign_all(rhs)
+        }
+    }
+        
+    fn div_matrix_all<Rhs>(self, rhs: Rhs) -> [[<T as Div<Rhs>>::Output; N]; M]
+    where
+        T: Div<Rhs>,
+        Rhs: Copy
+    {
+        self.map(|lhs| lhs.div_all(rhs))
+    }
+    fn div_matrix_assign_all<Rhs>(&mut self, rhs: Rhs)
+    where
+        T: DivAssign<Rhs>,
+        Rhs: Copy
+    {
+        for lhs in self.iter_mut()
+        {
+            lhs.div_assign_all(rhs)
         }
     }
     

@@ -17,11 +17,11 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
         T: ComplexFloat + SubAssign + DivAssign + AddAssign + Copy,
         [(); max_len(N, N)]:;
         
-    fn solve_matrix(&self, b: &[T; N]) -> [T; N]
+    fn solve_square_matrix(&self, b: &[T; N]) -> [T; N]
     where
         T: Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign + Copy,
         [(); max_len(N, N)]:;
-    fn solve_matrix_complex(&self, b: &[T; N]) -> [T; N]
+    fn solve_square_matrix_complex(&self, b: &[T; N]) -> [T; N]
     where
         T: ComplexFloat + AddAssign + SubAssign + DivAssign + Copy,
         [(); max_len(N, N)]:;
@@ -198,7 +198,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         Some(ia)
     }
 
-    fn solve_matrix(&self, b: &[T; N]) -> [T; N]
+    fn solve_square_matrix(&self, b: &[T; N]) -> [T; N]
     where
         T: Copy + Signed + Zero + One + PartialOrd + AddAssign + SubAssign + DivAssign,
         [(); max_len(N, N)]:
@@ -206,7 +206,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         let (l, u, p, q) = self.lupq_matrix();
     
         let [bp] = core::array::from_ref(b).mul_matrix(&p);
-        let qbp = q.mul_matrix(&bp.as_collumn()).into_uncollumn();
+        let qbp = bp;
     
         let mut x = qbp;
         
@@ -241,9 +241,9 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
             }
         }
     
-        x
+        q.mul_matrix(x.as_collumn()).into_uncollumn()
     }
-    fn solve_matrix_complex(&self, b: &[T; N]) -> [T; N]
+    fn solve_square_matrix_complex(&self, b: &[T; N]) -> [T; N]
     where
         T: ComplexFloat + AddAssign + SubAssign + DivAssign + Copy,
         [(); max_len(N, N)]:
@@ -542,7 +542,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
                     lambda_mt[j][k] -= t[j][k];
                 }
             }
-            let vi = lambda_mt.solve_matrix_complex(&r);
+            let vi = lambda_mt.solve_square_matrix_complex(&r);
             for k in 0..i
             {
                 v[k][i] = vi[k]
