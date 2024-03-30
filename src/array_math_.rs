@@ -135,17 +135,17 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         T: ComplexFloat + AddAssign + DivAssign,
         [(); N - 1]:;
 
-    fn polyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    fn polyfit<Y, Z, const M: usize>(&self, y: &[Y; N]) -> [Z; M]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
-        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
         Y: Copy,
         [(); max_len(M, M)]:,
         [(); max_len(N, N)]:;
-    fn rpolyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    fn rpolyfit<Y, Z, const M: usize>(&self, y: &[Y; N]) -> [Z; M]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
-        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
         Y: Copy,
         [(); max_len(M, M)]:,
         [(); max_len(N, N)]:;
@@ -1042,27 +1042,27 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         roots
     }
     
-    fn polyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    fn polyfit<Y, Z, const M: usize>(&self, y: &[Y; N]) -> [Z; M]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
-        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
         Y: Copy,
         [(); max_len(M, M)]:,
         [(); max_len(N, N)]:
     {
-        let mut p = Self::rpolyfit(x, y);
+        let mut p = self.rpolyfit(y);
         p.reverse();
         p
     }
-    fn rpolyfit<X, Y, const M: usize>(x: &[X; M], y: &[Y; M]) -> Self
+    fn rpolyfit<Y, Z, const M: usize>(&self, y: &[Y; N]) -> [Z; M]
     where
-        T: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<T::Real, Output = T>,
-        X: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<X::Real> + Mul<Y, Output = T> + Into<T>,
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
         Y: Copy,
         [(); max_len(M, M)]:,
         [(); max_len(N, N)]:
     {
-        let v = x.vandermonde_matrix::<N>();
+        let v = self.vandermonde_matrix::<M>();
 
         let (q, r) = v.qr_matrix();
         let qtmy = q.transpose().mul_matrix(y.as_collumn());

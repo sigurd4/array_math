@@ -72,7 +72,7 @@ mod test
         let x = [4.0, -1.0, 6.0, 7.0];
         let y = x.map(|x| p.rpolynomial(x));
 
-        let p = <[f64; 3]>::rpolyfit(&x, &y);
+        let p: [_; 3] = x.rpolyfit(&y);
 
         println!("{:?}", p);
     }
