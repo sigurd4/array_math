@@ -124,6 +124,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn vandermonde_matrix<const M: usize>(&self) -> [[T; M]; N]
     where
         T: One + Copy + Mul;
+        
     fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
         Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
@@ -913,6 +914,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         }
         m
     }
+
     fn polynomial_roots(&self) -> [Complex<T::Real>; N - 1]
     where
         Complex<T::Real>: From<T> + AddAssign + SubAssign + MulAssign + DivAssign + DivAssign<T::Real>,
