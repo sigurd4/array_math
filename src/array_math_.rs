@@ -1434,7 +1434,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         ArrayOps::fill(|n| {
             let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
             let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
-            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*3).unwrap()/T::from(N - 1).unwrap()).cos();
             a0 - a1*z1 + a2*z2 - a3*z3
         })
     }
@@ -1450,7 +1450,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         ArrayOps::fill(|n| {
             let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
             let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
-            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*3).unwrap()/T::from(N - 1).unwrap()).cos();
             a0 - a1*z1 + a2*z2 - a3*z3
         })
     }
@@ -1466,7 +1466,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         ArrayOps::fill(|n| {
             let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
             let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
-            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*3).unwrap()/T::from(N - 1).unwrap()).cos();
             a0 - a1*z1 + a2*z2 - a3*z3
         })
     }
@@ -1483,8 +1483,8 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         ArrayOps::fill(|n| {
             let z1 = (T::TAU()*T::from(n).unwrap()/T::from(N - 1).unwrap()).cos();
             let z2 = (T::TAU()*T::from(n*2).unwrap()/T::from(N - 1).unwrap()).cos();
-            let z3 = (T::TAU()*T::from(n*6).unwrap()/T::from(N - 1).unwrap()).cos();
-            let z4 = (T::TAU()*T::from(n*8).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z3 = (T::TAU()*T::from(n*3).unwrap()/T::from(N - 1).unwrap()).cos();
+            let z4 = (T::TAU()*T::from(n*4).unwrap()/T::from(N - 1).unwrap()).cos();
             a0 - a1*z1 + a2*z2 - a3*z3 + a4*z4
         })
     }
