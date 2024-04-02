@@ -133,14 +133,19 @@ where
         let x: [_; P] = partial_fft_unscaled::<_, _, I, _>(array);
 
         let wn = <T as From<_>>::from(Complex::cis(<T::Real as NumCast>::from(if I {TAU} else {-TAU}/N as f64).unwrap()));
-        let mut wn_pn = T::one();
+        let mut wn_pk = T::one();
         let m = N/P;
         for k in 0..N
         {
-            array[k] = x.each_ref()
-                .map(|x| x[k % m])
-                .polynomial(wn_pn);
-            wn_pn *= wn;
+            let mut e = T::one();
+            array[k] = x.iter()
+                .map(|x| {
+                    let x = x[k % m];
+                    let y = x*e;
+                    e *= wn_pk;
+                    y
+                }).sum::<T>();
+            wn_pk *= wn;
         }
         return true;
     }
@@ -169,7 +174,7 @@ where
             array[k] = x.iter()
                 .map(|x| {
                     let x = x[k % m];
-                    let y = x*wn_pk;
+                    let y = x*e;
                     e *= wn_pk;
                     y
                 }).sum::<T>();
