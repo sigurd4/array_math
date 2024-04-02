@@ -418,6 +418,15 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn flat_top_window() -> Self
     where
         T: Float + FloatConst;
+        
+    fn frac_rotate_right(&mut self, shift: T::Real)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<<T>::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn frac_rotate_left(&mut self, shift: T::Real)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<<T>::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
 }
 
 impl<T, const N: usize> ArrayMath<T, N> for [T; N]
@@ -1487,6 +1496,64 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             let z4 = (T::TAU()*T::from(n*4).unwrap()/T::from(N - 1).unwrap()).cos();
             a0 - a1*z1 + a2*z2 - a3*z3 + a4*z4
         })
+    }
+    
+    fn frac_rotate_right(&mut self, shift: T::Real)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<<T>::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        let (trunc, fract) = if let Some(trunc) = NumCast::from(shift.trunc())
+        {
+            (trunc, shift.fract())
+        }
+        else
+        {
+            (0, shift)
+        };
+        if !fract.is_zero()
+        {
+            let mut x: [Complex<T::Real>; N] = self.map(|x| x.into());
+            x.fft();
+            let n = x.len();
+            for (k, x) in x.iter_mut()
+                .enumerate()
+            {
+                let m = <T::Real as NumCast>::from((k + n/2) % n).unwrap() - NumCast::from(n/2).unwrap();
+                
+                let z = Complex::cis(-T::Real::TAU()*fract*m/NumCast::from(n).unwrap());
+                *x *= z
+            }
+            x.ifft();
+            for (y, x) in self.iter_mut()
+                .zip(x.into_iter())
+            {
+                if let Some(y) = <dyn Any>::downcast_mut::<Complex<T::Real>>(y as &mut dyn Any)
+                {
+                    *y = x
+                }
+                else
+                {
+                    *y = x.re.into()
+                }
+            }
+        }
+
+        if shift.is_sign_positive()
+        {
+            self.rotate_right(trunc)
+        }
+        else
+        {
+            self.rotate_left(trunc)
+        }
+    }
+    fn frac_rotate_left(&mut self, shift: T::Real)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<<T>::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        self.frac_rotate_right(-shift)
     }
 }
 
