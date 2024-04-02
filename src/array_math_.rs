@@ -378,7 +378,7 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: Float;
         
-    fn belch_window() -> Self
+    fn welch_window() -> Self
     where
         T: Float;
         
@@ -1362,7 +1362,7 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         })
     }
     
-    fn belch_window() -> Self
+    fn welch_window() -> Self
     where
         T: Float
     {
