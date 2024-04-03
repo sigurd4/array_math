@@ -45,7 +45,7 @@ where
         // In-place FFT
 
         array.as_mut_slice()
-            .bit_reverse_permutation();
+            .bit_rev_permutation();
         
         for s in 0..N.ilog2()
         {

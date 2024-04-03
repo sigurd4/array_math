@@ -1,7 +1,7 @@
 use core::any::Any;
 use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use array__ops::{max_len, Array2dOps, ArrayOps, CollumnArrayOps};
+use array__ops::{max_len, Array2dOps, ArrayOps, CollumnArrayOps, SliceOps};
 use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
 use crate::{fft, MatrixMath, SquareMatrixMath};
@@ -310,6 +310,22 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     fn ifft(&mut self)
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
+        
+    /// Walsh-Hadamard transform
+    fn fwht_unscaled(&mut self)
+    where
+        T: Add<Output = T> + Sub<Output = T> + Copy,
+        [(); N.is_power_of_two() as usize - 1]:;
+    /// Normalized Walsh-Hadamard transform
+    fn fwht(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:;
+    /// Normalized inverse Walsh-Hadamard transform
+    fn ifwht(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:;
     
     /// Performs the FFT on an array of real floating-point numbers of length `N`.
     /// The result is an array of complex numbers of length `N/2 + 1`.
@@ -1257,6 +1273,44 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         self.fft_unscaled::<true>();
 
         self.mul_assign_all(<T as From<_>>::from(<Complex<_> as From<_>>::from(<T::Real as NumCast>::from(1.0/N as f64).unwrap())));
+    }
+
+    fn fwht_unscaled(&mut self)
+    where
+        T: Add<Output = T> + Sub<Output = T> + Copy,
+        [(); N.is_power_of_two() as usize - 1]:
+    {
+        let mut h = 1;
+        while h < N
+        {
+            for i in (0..N).step_by(h*2)
+            {
+                for j in i..i + h
+                {
+                    let x = self[j];
+                    let y = self[j + h];
+                    self[j] = x + y;
+                    self[j + h] = x - y;
+                }
+            }
+            h *= 2;
+        }
+    }
+    fn fwht(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:
+    {
+        self.fwht_unscaled();
+        self.mul_assign_all(Float::powi(T::Real::FRAC_1_SQRT_2(), (self.len().ilog2() + 3).try_into().unwrap()))
+    }
+    fn ifwht(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:
+    {
+        self.fwht_unscaled();
+        self.mul_assign_all(Float::powi(T::Real::FRAC_1_SQRT_2(), TryInto::<i32>::try_into(self.len().ilog2()).unwrap() - 3))
     }
     
     fn real_fft(&self, y: &mut [Complex<T>; N/2 + 1])

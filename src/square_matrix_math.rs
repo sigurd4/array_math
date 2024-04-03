@@ -1,3 +1,4 @@
+use core::ops::{MulAssign, Neg};
 use std::{any::Any, f64::{consts::SQRT_3, EPSILON}, ops::{Add, AddAssign, Div, DivAssign, Mul, Sub, SubAssign}};
 
 use array__ops::{max_len, Array2dOps, ArrayNdOps, ArrayOps, CollumnArrayOps};
@@ -70,6 +71,10 @@ pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
         T: ComplexFloat,
         [(); max_len(N, N)]:;
 
+    fn hadamard_matrix(shape: u8) -> Self
+    where
+        T: One + Neg<Output = T> + MulAssign + Copy,
+        [(); (N/2).is_power_of_two() as usize - 1]:;
 }
 
 impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
@@ -588,6 +593,42 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         }
 
         (lambda, w)
+    }
+    
+    fn hadamard_matrix(mut shape: u8) -> Self
+    where
+        T: One + Neg<Output = T> + MulAssign + Copy,
+        [(); (N/2).is_power_of_two() as usize - 1]:
+    {
+        shape %= 4;
+        let one = T::one();
+        let a0 = one;
+        let a1 = [
+            [if shape == 2 {-one} else {one}, if shape == 3 {-one} else {one}],
+            [if shape == 1 {-one} else {one}, if shape == 0 {-one} else {one}]
+        ];
+
+        let mut m = [[a0; N]; N];
+        
+        let n_log = N.ilog2();
+        let mut i = 0;
+        while i < N
+        {
+            let mut j = 0;
+            while j < N
+            {
+                let mut n = 0;
+                while n < n_log
+                {
+                    m[i][j] *= a1[i/(1 << n) % 2][j/(1 << n) % 2];
+                    n += 1;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+
+        m
     }
 }
 

@@ -41,6 +41,14 @@ mod test
     use super::*;
 
     #[test]
+    fn hwt()
+    {
+        let mut a = [19, -1, 11, -9, -7, 13, -15, 5].map(|a| a as f32);
+        a.fwht();
+        println!("{:?}", a)
+    }
+
+    #[test]
     fn test()
     {
         let a = [1.0, 2.0, 1.0];
