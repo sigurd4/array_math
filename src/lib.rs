@@ -41,10 +41,24 @@ mod test
     use super::*;
 
     #[test]
-    fn hwt()
+    fn wht()
     {
         let mut a = [19, -1, 11, -9, -7, 13, -15, 5].map(|a| a as f32);
         a.fwht();
+        println!("{:?}", a)
+    }
+    
+    #[test]
+    fn wht_2d()
+    {
+        let mut a = [
+            [3, 6, -1, -4],
+            [-12, 15, 1, 7],
+            [0, 5, -2, 3],
+            [1, 12, -13, 4]
+        ].map_nd(|a: i8| a as f32);
+        a.fwht_2d();
+        a.ifwht_2d();
         println!("{:?}", a)
     }
 
