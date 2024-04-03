@@ -171,6 +171,18 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
     fn ifft_2d(&mut self)
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum;
+
+    fn fwht_2d(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:;
+        
+    fn ifwht_2d(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:;
         
     fn real_fft_2d_tall(&self, y: &mut [[Complex<T>; N]; M/2 + 1])
     where
@@ -579,6 +591,48 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         for r in self.iter_mut()
         {
             r.ifft();
+        }
+    }
+    
+    fn fwht_2d(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.fwht();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.fwht();
+        }
+    }
+        
+    fn ifwht_2d(&mut self)
+    where
+        T: ComplexFloat + MulAssign<T::Real>,
+        [(); N.is_power_of_two() as usize - 1]:,
+        [(); M.is_power_of_two() as usize - 1]:
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.ifwht();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.ifwht();
         }
     }
     
