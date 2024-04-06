@@ -184,7 +184,7 @@ mod test
         let plot_title: &str = &format!("{fn_name} benchmark");
         let plot_path: &str = &format!("{PLOT_TARGET}/{fn_name}_benchmark.png");
 
-        const N: usize = 8;
+        const N: usize = 9;
         const I: [usize; N] = [
             2,
             4,
@@ -193,7 +193,8 @@ mod test
             64,
             128,
             256,
-            512
+            512,
+            1024
         ];
 
         fn f1<const N: usize>(array: &mut [Complex<f32>; N])
@@ -222,15 +223,17 @@ mod test
 
         fn t<const N: usize>(f: impl Fn(&mut [Complex<f32>; N])) -> f32
         {
+            const M: usize = 4096;
+
             let mut x = [Complex::from(1.0); N];
             let t0 = SystemTime::now();
-            for _ in 0..1024
+            for _ in 0..M
             {
                 f(&mut x);
             }
             let dt = SystemTime::now().duration_since(t0).unwrap();
             println!("Done N = {}", N);
-            dt.as_secs_f32()
+            dt.as_secs_f32()/M as f32
         }
 
         let t = [
@@ -243,8 +246,9 @@ mod test
                 t::<{I[5]}>(f1),
                 t::<{I[6]}>(f1),
                 t::<{I[7]}>(f1),
+                t::<{I[8]}>(f1),
             ],
-            [
+            /*[
                 t::<{I[0]}>(f2),
                 t::<{I[1]}>(f2),
                 t::<{I[2]}>(f2),
@@ -253,7 +257,8 @@ mod test
                 t::<{I[5]}>(f2),
                 t::<{I[6]}>(f2),
                 t::<{I[7]}>(f2),
-            ],
+                t::<{I[8]}>(f2),
+            ],*/
             [
                 t::<{I[0]}>(f3),
                 t::<{I[1]}>(f3),
@@ -263,6 +268,7 @@ mod test
                 t::<{I[5]}>(f3),
                 t::<{I[6]}>(f3),
                 t::<{I[7]}>(f3),
+                t::<{I[8]}>(f3),
             ]
         ];
         
