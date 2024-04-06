@@ -4,7 +4,7 @@ use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, 
 use array__ops::{max_len, Array2dOps, ArrayOps, CollumnArrayOps, SliceOps};
 use num::{complex::ComplexFloat, traits::{FloatConst, Inv, Pow}, Complex, Float, NumCast, One, Zero};
 
-use crate::{fft, MatrixMath, SquareMatrixMath};
+use crate::{MatrixMath, SquareMatrixMath, SliceMath};
 
 const NEWTON_POLYNOMIAL_ROOTS: usize = 16;
 
@@ -326,6 +326,49 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
     where
         T: ComplexFloat + MulAssign<T::Real>,
         [(); N.is_power_of_two() as usize - 1]:;
+        
+    fn fht(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn ifht(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+        
+    fn dst_i(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>;
+    fn dst_ii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn dst_iii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
+    fn dst_iv(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
+        
+    fn dct_i(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + DivAssign<T::Real> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>;
+    fn dct_ii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn dct_iii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>> + DivAssign<T::Real>;
+    fn dct_iv(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
     
     /// Performs the FFT on an array of real floating-point numbers of length `N`.
     /// The result is an array of complex numbers of length `N/2 + 1`.
@@ -1223,41 +1266,8 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     where
         T: ComplexFloat<Real: Float> + MulAssign + AddAssign + From<Complex<T::Real>> + Sum
     {
-        if N <= 1
-        {
-            return;
-        }
-        if !(
-            fft::fft_radix2_unscaled::<_, _, I>(self)
-            || fft::fft_radix3_unscaled::<_, _, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 5, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 7, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 11, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 13, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 17, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 19, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 23, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 29, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 31, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 37, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 41, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 43, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 47, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 53, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 59, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 61, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 67, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 71, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 73, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 79, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 83, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 89, I>(self)
-            || fft::fft_radix_p_unscaled::<_, _, 97, I>(self)
-            || fft::fft_radix_n_sqrt_unscaled::<_, _, I>(self)
-        )
-        {
-            fft::dft_unscaled::<_, _, I>(self)
-        }
+        self.as_mut_slice()
+            .fft_unscaled::<I>()
     }
     
     fn fft(&mut self)
@@ -1311,6 +1321,133 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
     {
         self.fwht_unscaled();
         self.mul_assign_all(Float::powi(T::Real::FRAC_1_SQRT_2(), TryInto::<i32>::try_into(self.len().ilog2()).unwrap() - 3))
+    }
+    
+    fn fht(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T> + Into<Complex<T::Real>>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        if core::intrinsics::type_id::<T>() == core::intrinsics::type_id::<Complex<T::Real>>()
+        {
+            let x = unsafe {
+                core::mem::transmute::<&mut Self, &mut [Complex<T::Real>; N]>(self)
+            };
+            x.fft();
+
+            for x in x.iter_mut()
+            {
+                *x = (x.re - x.im).into()
+            }
+
+            return
+        }
+
+        let mut y = self.each_ref()
+            .map(|&y| y.into());
+        y.fft();
+        
+        for (x, y) in self.iter_mut()
+            .zip(y.into_iter())
+        {
+            *x = (y.re - y.im).into()
+        }
+    }
+    fn ifht(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T> + Into<Complex<T::Real>>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        if core::intrinsics::type_id::<T>() == core::intrinsics::type_id::<Complex<T::Real>>()
+        {
+            let x = unsafe {
+                core::mem::transmute::<&mut Self, &mut [Complex<T::Real>; N]>(self)
+            };
+            x.ifft();
+
+            for x in x.iter_mut()
+            {
+                *x = (x.re + x.im).into()
+            }
+
+            return
+        }
+
+        let mut y = self.each_ref()
+            .map(|&y| y.into());
+        y.ifft();
+        
+        for (x, y) in self.iter_mut()
+            .zip(y.into_iter())
+        {
+            *x = (y.re + y.im).into()
+        }
+    }
+    
+    fn dst_i(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>
+    {
+        self.as_mut_slice()
+            .dst_i()
+    }
+    fn dst_ii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        self.as_mut_slice()
+            .dst_ii()
+    }
+    fn dst_iii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T::Real, Output = Complex<T::Real>> + Mul<T, Output = Complex<T::Real>>
+    {
+        self.as_mut_slice()
+            .dst_iii()
+    }
+    fn dst_iv(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T::Real, Output = Complex<T::Real>> + Mul<T, Output = Complex<T::Real>>
+    {
+        self.as_mut_slice()
+            .dst_iv()
+    }
+
+    fn dct_i(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + DivAssign<T::Real> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>
+    {
+        self.as_mut_slice()
+            .dct_i()
+    }
+    fn dct_ii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        self.as_mut_slice()
+            .dct_ii()
+    }
+    fn dct_iii(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>> + Mul<T::Real, Output = Complex<T::Real>> + DivAssign<T::Real>
+    {
+        self.as_mut_slice()
+            .dct_iii()
+    }
+    fn dct_iv(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>> + Mul<T::Real, Output = Complex<T::Real>>
+    {
+        self.as_mut_slice()
+            .dct_iv()
     }
     
     fn real_fft(&self, y: &mut [Complex<T>; N/2 + 1])

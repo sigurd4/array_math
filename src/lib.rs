@@ -11,6 +11,8 @@
 #![feature(let_chains)]
 #![feature(more_float_constants)]
 
+#![feature(core_intrinsics)]
+
 #![feature(generic_const_exprs)]
 #![feature(const_closures)]
 
@@ -25,7 +27,6 @@ moddef::moddef!(
     },
     mod {
         plot for cfg(test),
-        fft,
         util
     }
 );
@@ -176,7 +177,7 @@ mod test
 
     #[test]
     #[ignore]
-    fn bench()
+    fn bench_fft()
     {
         let fn_name = "FFT";
 
