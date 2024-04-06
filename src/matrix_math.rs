@@ -184,6 +184,40 @@ pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M,
         [(); N.is_power_of_two() as usize - 1]:,
         [(); M.is_power_of_two() as usize - 1]:;
         
+    fn dst_i_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>;
+    fn dst_ii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn dst_iii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
+    fn dst_iv_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
+        
+    fn dct_i_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + DivAssign<T::Real> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>;
+    fn dct_ii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign;
+    fn dct_iii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>> + DivAssign<T::Real>;
+    fn dct_iv_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>;
+        
     fn real_fft_2d_tall(&self, y: &mut [[Complex<T>; N]; M/2 + 1])
     where
         T: Float,
@@ -633,6 +667,160 @@ impl<T, const M: usize, const N: usize> MatrixMath<T, M, N> for [[T; N]; M]
         for r in self.iter_mut()
         {
             r.ifwht();
+        }
+    }
+    
+    fn dst_i_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dst_i();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dst_i();
+        }
+    }
+    fn dst_ii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dst_ii();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dst_ii();
+        }
+    }
+    fn dst_iii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dst_iii();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dst_iii();
+        }
+    }
+    fn dst_iv_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dst_iv();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dst_iv();
+        }
+    }
+        
+    fn dct_i_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + DivAssign<T::Real> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + DivAssign<T::Real>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dct_i();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dct_i();
+        }
+    }
+    fn dct_ii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dct_ii();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dct_ii();
+        }
+    }
+    fn dct_iii_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>> + DivAssign<T::Real>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dct_iii();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dct_iii();
+        }
+    }
+    fn dct_iv_2d(&mut self)
+    where
+        T: ComplexFloat<Real: Into<T>> + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + Mul<T, Output = Complex<T::Real>>
+    {
+        let mut t = self.transpose();
+
+        for r in t.iter_mut()
+        {
+            r.dct_iv();
+        }
+
+        *self = t.transpose();
+
+        for r in self.iter_mut()
+        {
+            r.dct_iv();
         }
     }
     
