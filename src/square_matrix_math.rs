@@ -6,8 +6,7 @@ use num::{complex::ComplexFloat, Complex, Float, NumCast, One, Signed, Zero};
 
 use crate::{ArrayMath, MatrixMath};
 
-#[const_trait]
-pub trait SquareMatrixMath<T, const N: usize>: ~const MatrixMath<T, N, N>
+pub trait SquareMatrixMath<T, const N: usize>: MatrixMath<T, N, N>
 {
     fn inv_matrix(&self) -> Option<[[T; N]; N]>
     where

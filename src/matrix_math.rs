@@ -6,8 +6,7 @@ use num::{complex::ComplexFloat, Complex, Float, NumCast, One, Signed, Zero};
 
 use crate::{ArrayMath, SquareMatrixMath};
 
-#[const_trait]
-pub trait MatrixMath<T, const M: usize, const N: usize>: ~const Array2dOps<T, M, N>
+pub trait MatrixMath<T, const M: usize, const N: usize>: Array2dOps<T, M, N>
 {
     fn identity_matrix() -> Self
     where
