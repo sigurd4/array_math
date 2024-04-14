@@ -1240,13 +1240,18 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         T: Mul<Rhs, Output: AddAssign + Zero> + Copy,
         Rhs: Copy
     {
-        let x_len = N.min(M);
+        let y_len = N.max(M);
 
         ArrayOps::fill(|n| {
             let mut y = Zero::zero();
-            for k in 0..x_len
+            for k in 0..y_len
             {
-                y += self[n % self.len()]*rhs[(n + rhs.len() - k) % rhs.len()]
+                let i = k;
+                let j = (n + y_len - k) % y_len;
+                if i < self.len() && j < rhs.len()
+                {
+                    y += self[i]*rhs[j]
+                }
             }
             y
         })
