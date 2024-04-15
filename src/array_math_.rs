@@ -150,6 +150,24 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         Y: Copy,
         [(); max_len(M, M)]:,
         [(); max_len(N, N)]:;
+    fn linfit<Y, Z>(&self, y: &[Y; N]) -> [Z; 2]
+    where
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
+        Y: Copy,
+        [(); max_len(N, N)]:;
+    fn rlinfit<Y, Z>(&self, y: &[Y; N]) -> [Z; 2]
+    where
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
+        Y: Copy,
+        [(); max_len(N, N)]:;
+
+    fn detrend<const M: usize>(&mut self)
+    where
+        T: ComplexFloat + AddAssign + SubAssign + MulAssign + DivAssign + Div<T::Real, Output = T> + DivAssign<T::Real> + Mul<Output = T>,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:;
 
     /// Performs direct convolution.
     /// This is equivalent to a polynomial multiplication.
@@ -1159,6 +1177,38 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         let p = r.map(|r| r.map(|r| r.into())).solve_matrix(qtmy.as_uncollumn());
 
         p
+    }
+    fn linfit<Y, Z>(&self, y: &[Y; N]) -> [Z; 2]
+    where
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
+        Y: Copy,
+        [(); max_len(N, N)]:
+    {
+        self.polyfit::<_, _, 2>(y)
+    }
+    fn rlinfit<Y, Z>(&self, y: &[Y; N]) -> [Z; 2]
+    where
+        Z: ComplexFloat + AddAssign + SubAssign + DivAssign + Div<Z::Real, Output = Z>,
+        T: ComplexFloat + AddAssign + SubAssign + DivAssign + DivAssign<T::Real> + Mul<Y, Output = Z> + Into<Z>,
+        Y: Copy,
+        [(); max_len(N, N)]:
+    {
+        self.rpolyfit::<_, _, 2>(y)
+    }
+    
+    fn detrend<const M: usize>(&mut self)
+    where
+        T: ComplexFloat + AddAssign + SubAssign + MulAssign + DivAssign + Div<T::Real, Output = T> + DivAssign<T::Real> + Mul<Output = T>,
+        [(); max_len(M, M)]:,
+        [(); max_len(N, N)]:
+    {
+        let x = core::array::from_fn(|i| <T as NumCast>::from(i).unwrap());
+        let p: [_; M] = x.rpolyfit(self);
+        for i in 0..self.len()
+        {
+            self[i] -= p.rpolynomial(x[i])
+        }
     }
     
     fn convolve_direct<Rhs, const M: usize>(&self, rhs: &[Rhs; M]) -> [<T as Mul<Rhs>>::Output; N + M - 1]
