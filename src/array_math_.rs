@@ -965,6 +965,10 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
             }
             n -= 1;
         }
+        if n == 0
+        {
+            return c
+        }
         let mut i = 0;
         while i < n
         {
@@ -992,6 +996,10 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
                 break
             }
             n -= 1;
+        }
+        if n == 0
+        {
+            return c
         }
         let mut i = n;
         loop
