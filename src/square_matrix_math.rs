@@ -33,8 +33,8 @@ pub trait SquareMatrixMath<T, const N: usize>: MatrixMath<T, N, N>
     /// Returns the eigenvalues of the given matrix
     fn eigenvalues(&self) -> [Complex<T::Real>; N]
     where
-        Complex<T::Real>: From<T> + AddAssign + SubAssign + DivAssign<T::Real>,
-        T: ComplexFloat;
+        Complex<T::Real>: AddAssign + SubAssign + DivAssign<T::Real>,
+        T: ComplexFloat + Into<Complex<T::Real>>;
     /// Returns the eigenvalues and eigenvectors of the given matrix.
     /// 
     /// The method uses the algorithm described in [Convergence of the Shifted QR Algorithm for Unitary Hessenberg Matrices - Tai-Lin Wang and William B. Gragg](https://www.ams.org/journals/mcom/2002-71-240/S0025-5718-01-01387-4/S0025-5718-01-01387-4.pdf).
@@ -66,8 +66,8 @@ pub trait SquareMatrixMath<T, const N: usize>: MatrixMath<T, N, N>
     /// ```
     fn eigen(&self) -> ([Complex<T::Real>; N], [[Complex<T::Real>; N]; N])
     where
-        Complex<T::Real>: From<T> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real>,
-        T: ComplexFloat,
+        Complex<T::Real>: AddAssign + SubAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + Into<Complex<T::Real>>,
         [(); max_len(N, N)]:;
 
     fn hadamard_matrix(shape: u8) -> Self
@@ -363,15 +363,15 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
     
     fn eigenvalues(&self) -> [Complex<T::Real>; N]
     where
-        Complex<T::Real>: From<T> + AddAssign + SubAssign + DivAssign<T::Real>,
-        T: ComplexFloat
+        Complex<T::Real>: AddAssign + SubAssign + DivAssign<T::Real>,
+        T: ComplexFloat + Into<Complex<T::Real>>
     {
         if N == 0
         {
             return [Zero::zero(); N]
         }
 
-        let mut t = self.map(|a| a.map(|a| <Complex::<T::Real> as From<_>>::from(a)));
+        let mut t = self.map(|a| a.map(|a| Into::<Complex<_>>::into(a)));
 
         for i in 0..
         {
@@ -429,8 +429,8 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
     
     fn eigen(&self) -> ([Complex<T::Real>; N], [[Complex<T::Real>; N]; N])
     where
-        Complex<T::Real>: From<T> + AddAssign + SubAssign + DivAssign + DivAssign<T::Real>,
-        T: ComplexFloat,
+        Complex<T::Real>: AddAssign + SubAssign + DivAssign + DivAssign<T::Real>,
+        T: ComplexFloat + Into<Complex<T::Real>>,
         [(); max_len(N, N)]:
     {
         if N == 0
@@ -444,7 +444,7 @@ impl<T, const N: usize> SquareMatrixMath<T, N> for [[T; N]; N]
         const TEST: bool = false;
         const TEST_EPSILON: f64 = 0.0001;
 
-        let a = self.map(|a| a.map(|a| <Complex::<T::Real> as From<_>>::from(a))); //self.upper_hessenberg_matrix();
+        let a = self.map(|a| a.map(|a| Into::<Complex<_>>::into(a))); //self.upper_hessenberg_matrix();
         let mut t = a;
         let mut u = <[[Complex<T::Real>; N]; N]>::identity_matrix();
 
