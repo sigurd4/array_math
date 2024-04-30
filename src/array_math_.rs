@@ -277,10 +277,19 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         Complex<T::Real>: AddAssign + MulAssign + Mul<Complex<Rhs::Real>, Output: ComplexFloat<Real = <<T as Mul<Rhs>>::Output as ComplexFloat>::Real> + MulAssign + AddAssign + MulAssign<<<T as Mul<Rhs>>::Output as ComplexFloat>::Real> + Sum + 'static>,
         Complex<Rhs::Real>: AddAssign + MulAssign;
         
-    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> ([<T as Div<Rhs>>::Output; N + 1 - M], [T; M - 1])
+    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> Option<([<T as Div<Rhs>>::Output; N + 1 - M], [T; N])>
     where
         T: Div<Rhs, Output: Zero + Mul<Rhs, Output: Zero + AddAssign + Copy> + Copy> + Sub<<<T as Div<Rhs>>::Output as Mul<Rhs>>::Output, Output = T> + Zero + Copy,
         Rhs: Copy + Zero;
+    fn deconvolve_fft<const M: usize>(self, rhs: [T; M]) -> Option<([T; N + 1 - M], [T; N])>
+    where
+        T: ComplexFloat<Real: Into<T>> + SubAssign + AddAssign + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + MulAssign<T::Real>,
+        [(); max_len(N, M) - 1]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two()]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - (N + 1 - M)]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - M]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - ((N + 1 - M) + M - 1)]:;
 
     fn recip_all(self) -> [<T as Inv>::Output; N]
     where
@@ -1373,13 +1382,72 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
         })
     }
     
-    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> ([<T as Div<Rhs>>::Output; N + 1 - M], [T; M - 1])
+    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> Option<([<T as Div<Rhs>>::Output; N + 1 - M], [T; N])>
     where
         T: Div<Rhs, Output: Zero + Mul<Rhs, Output: Zero + AddAssign + Copy> + Copy> + Sub<<<T as Div<Rhs>>::Output as Mul<Rhs>>::Output, Output = T> + Zero + Copy,
         Rhs: Copy + Zero
     {
-        let (q, r): (Vec<_>, Vec<_>) = self.as_slice().deconvolve_direct(&rhs);
-        (q.try_into().ok().unwrap(), r.try_into().ok().unwrap())
+        self.as_slice()
+            .deconvolve_direct(&rhs)
+            .map(|(q, r): (Vec<_>, Vec<_>)| (q.try_into().ok().unwrap(), r.try_into().ok().unwrap()))
+    }
+    fn deconvolve_fft<const M: usize>(self, rhs: [T; M]) -> Option<([T; N + 1 - M], [T; N])>
+    where
+        T: ComplexFloat<Real: Into<T>> + SubAssign + AddAssign + Into<Complex<T::Real>> + 'static,
+        Complex<T::Real>: AddAssign + MulAssign + MulAssign<T::Real>,
+        [(); max_len(N, M) - 1]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two()]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - (N + 1 - M)]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - M]:,
+        [(); ((N + 1 - M) + M - 1).next_power_of_two() - ((N + 1 - M) + M - 1)]:
+    {
+        let mut q = [T::zero(); N + 1 - M];
+        if let Some(q0) = q.first_mut()
+        {
+            *q0 = One::one();
+        }
+
+        {
+            let mut w = [T::zero(); max_len(N, M) - 1];
+            let a = rhs.trim_zeros_front();
+            let b = self.trim_zeros_front();
+            if a.len() == 0
+            {
+                return None
+            }
+            let a0 = a[0];
+
+            for q in q.iter_mut()
+            {
+                let mut w0 = *q;
+                for (&w, &a) in w.iter()
+                    .zip(a.iter()
+                        .skip(1)
+                    )
+                {
+                    w0 -= w*(a/a0)
+                }
+                *q = w0*b[0];
+                for (&w, &b) in w.iter()
+                    .zip(b.iter()
+                        .skip(1)
+                    )
+                {
+                    *q += w*b
+                }
+
+                w.shift_right(w0);
+            }
+        }
+
+        let qa: [_; N] = q.convolve_fft(rhs)
+            .try_reformulate_length()
+            .ok()
+            .unwrap();
+
+        let r = self.sub_each(qa);
+
+        Some((q, r))
     }
     
     fn recip_all(self) -> [<T as Inv>::Output; N]
