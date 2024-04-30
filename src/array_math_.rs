@@ -276,6 +276,11 @@ pub trait ArrayMath<T, const N: usize>: ~const ArrayOps<T, N>
         Complex<<<T as Mul<Rhs>>::Output as ComplexFloat>::Real>: Into<<Complex<T::Real> as Mul<Complex<Rhs::Real>>>::Output>,
         Complex<T::Real>: AddAssign + MulAssign + Mul<Complex<Rhs::Real>, Output: ComplexFloat<Real = <<T as Mul<Rhs>>::Output as ComplexFloat>::Real> + MulAssign + AddAssign + MulAssign<<<T as Mul<Rhs>>::Output as ComplexFloat>::Real> + Sum + 'static>,
         Complex<Rhs::Real>: AddAssign + MulAssign;
+        
+    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> ([<T as Div<Rhs>>::Output; N + 1 - M], [T; M - 1])
+    where
+        T: Div<Rhs, Output: Zero + Mul<Rhs, Output: Zero + AddAssign + Copy> + Copy> + Sub<<<T as Div<Rhs>>::Output as Mul<Rhs>>::Output, Output = T> + Zero + Copy,
+        Rhs: Copy + Zero;
 
     fn recip_all(self) -> [<T as Inv>::Output; N]
     where
@@ -1366,6 +1371,15 @@ impl<T, const N: usize> ArrayMath<T, N> for [T; N]
                 y.re().into()
             }
         })
+    }
+    
+    fn deconvolve_direct<Rhs, const M: usize>(self, rhs: [Rhs; M]) -> ([<T as Div<Rhs>>::Output; N + 1 - M], [T; M - 1])
+    where
+        T: Div<Rhs, Output: Zero + Mul<Rhs, Output: Zero + AddAssign + Copy> + Copy> + Sub<<<T as Div<Rhs>>::Output as Mul<Rhs>>::Output, Output = T> + Zero + Copy,
+        Rhs: Copy + Zero
+    {
+        let (q, r): (Vec<_>, Vec<_>) = self.as_slice().deconvolve_direct(&rhs);
+        (q.try_into().ok().unwrap(), r.try_into().ok().unwrap())
     }
     
     fn recip_all(self) -> [<T as Inv>::Output; N]
