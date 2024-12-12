@@ -14,9 +14,9 @@ ndarray = ["slice_math/ndarray"]
 
 [dependencies]
 moddef = "0.2.2"
-num = "0.4.1"
-array__ops = {version = "0.1.19", features = ["std"]}
-slice_math = "0.1.30"
+num = "0.4.3"
+array__ops = {version = "0.1.20", features = ["std"]}
+slice_math = "0.1.31"
 #slice_math = {path = "../slice_math"}
 #float_approx_math = "0.1.9"
 #num_identities_const = "0.1.0"
